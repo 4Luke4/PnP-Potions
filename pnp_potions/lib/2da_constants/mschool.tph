@@ -1,0 +1,16 @@
+DEFINE_ACTION_MACRO "MSCHOOL_2DA" BEGIN
+	LOCAL_SET "read_mschool" = 0
+	LOCAL_SET "i" = 0
+	LOCAL_SPRINT "identifier" ""
+	// Main
+	COPY_EXISTING - "MSCHOOL.2DA" "override"
+		READ_2DA_ENTRIES_NOW "read_mschool" 0
+		FOR ("i" = 4; "%i%" < "%read_mschool%"; "i" += 1) BEGIN	// Skip header rows and "None", start from "ABJURER"
+			READ_2DA_ENTRY_FORMER "read_mschool" "%i%" 0 "identifier"
+			TO_UPPER "identifier"
+			SET "MSCHOOL_%identifier%" = "%i%" - 3
+		END
+	BUT_ONLY_IF_IT_CHANGES
+	// WILDMAGE is not listed, add it manually
+	OUTER_SET "MSCHOOL_WILDMAGE" = 10
+END

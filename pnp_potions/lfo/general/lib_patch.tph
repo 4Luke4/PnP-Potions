@@ -1,0 +1,311 @@
+////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////
+//	Template for creating resources from scratch
+////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////
+
+DEFINE_ACTION_FUNCTION "MAKE_TEMPLATE"
+STR_VAR
+	"edits" = ""
+	"editstring" = ""
+	"filename" = ""
+	"file_ext" = ""
+BEGIN
+	ACTION_IF (("%filename%" STRING_MATCHES_REGEXP "^[^ %NL%%TAB%]+$") == 0) BEGIN
+		// Ex.: "GTTEST"
+		ACTION_IF !(FILE_EXISTS_IN_GAME "%filename%.%file_ext%") BEGIN
+			PRINT ~LFO: Creating %file_ext% file "%filename%" and applying patch(es)...~
+			SILENT
+			// Set base structure
+			ACTION_MATCH "%file_ext%" WITH
+				"ITM" BEGIN
+					LAF "CREATE_ITM_FILE"
+					STR_VAR
+						"filename"
+					END
+				END
+				"SPL" BEGIN
+					LAF "CREATE_SPL_FILE"
+					STR_VAR
+						"filename"
+					END
+				END
+				"CRE" BEGIN
+					LAF "CREATE_CRE_FILE"
+					STR_VAR
+						"filename"
+					END
+				END
+				"PRO" BEGIN
+					LAF "CREATE_PRO_FILE"
+					STR_VAR
+						"filename"
+						"idsname"
+						"projectile_type"
+					END
+				END
+				"STO" BEGIN
+					LAF "CREATE_STO_FILE"
+					STR_VAR
+						"filename"
+					END
+				END
+				"EFF" BEGIN
+					LAF "CREATE_EFF_FILE"
+					STR_VAR
+						"filename"
+					END
+				END
+				"VVC" BEGIN
+					LAF "CREATE_VVC_FILE"
+					STR_VAR
+						"filename"
+					END
+				END
+				DEFAULT
+					FAIL "CREATE_TEMPLATE: unknown file extension ~%file_ext%~"
+			END
+			// Apply the specified edits (if any, of course)
+			ACTION_IF ("%editstring%" STRING_COMPARE_CASE "") BEGIN
+				COPY_EXISTING "%filename%.%file_ext%" "override"
+					LPF "APPLY_PATCHES_INLINE"
+					STR_VAR
+						"editstring"
+					END
+				BUT_ONLY_IF_IT_CHANGES
+			END
+			ACTION_IF ("%edits%" STRING_COMPARE_CASE "") BEGIN
+				COPY_EXISTING "%filename%.%file_ext%" "override"
+					LPF "APPLY_PATCHES"
+					STR_VAR
+						"edits"
+					END
+				BUT_ONLY_IF_IT_CHANGES
+			END
+			PRINT "...done"
+		END ELSE BEGIN
+			PRINT "MAKE_TEMPLATE: file ~%filename%.%file_ext%~ already present, skipping..."
+		END
+	END ELSE BEGIN
+		FAIL "MAKE_TEMPLATE: string ~%filename%~ appears to be malformed. Please stick to the following template: ~EXAMPLE~"
+	END
+END
+
+////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////
+//	Template for editing resources
+////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////
+
+DEFINE_ACTION_FUNCTION "EDIT_TEMPLATE"
+INT_VAR
+	"allow_missing" = 0
+STR_VAR
+	"edits" = ""
+	"editstring" = ""
+	"file_list" = ""
+	"file_ext" = ""
+BEGIN
+	ACTION_IF (("%file_list%" STRING_MATCHES_REGEXP "^[^ ,%NL%%TAB%]+\(, [^ ,%NL%%TAB%]+\)*$") == 0) BEGIN
+		// Make sure to PRINT all files that do exist!
+		LAF "GET_ACTUAL_FILE_LIST"
+		RET
+			"file_list" = "actual_file_list"
+		END
+		// Main – Loop through all files that do exist!
+		ACTION_IF ("%file_list%" STRING_COMPARE_CASE "") BEGIN
+			PRINT ~LFO: Editing %file_ext% file(s) "%file_list%" and applying patch(es)...~
+			SILENT
+			// Main
+			OUTER_WHILE ("%file_list%" STRING_COMPARE_CASE "") BEGIN
+				LAF "RETURN_FIRST_ENTRY"
+				STR_VAR
+					"list" = "%file_list%"
+				RET
+					"file_list" = "remaining_list"
+					"entry"
+				END
+				// Apply the specified edits (if any, of course)
+				ACTION_IF ("%editstring%" STRING_COMPARE_CASE "") BEGIN
+					COPY_EXISTING "%entry%.%file_ext%" "override"
+						PATCH_IF ("%DEST_EXT%" STRING_EQUAL_CASE "CRE") BEGIN
+							LPF "FJ_CRE_VALIDITY" END
+						END
+						LPF "APPLY_PATCHES_INLINE"
+						STR_VAR
+							"editstring"
+						END
+					BUT_ONLY_IF_IT_CHANGES
+				END
+				ACTION_IF ("%edits%" STRING_COMPARE_CASE "") BEGIN
+					COPY_EXISTING "%entry%.%file_ext%" "override"
+						PATCH_IF ("%DEST_EXT%" STRING_EQUAL_CASE "CRE") BEGIN
+							LPF "FJ_CRE_VALIDITY" END
+						END
+						LPF "APPLY_PATCHES"
+						STR_VAR
+							"edits"
+						END
+					BUT_ONLY_IF_IT_CHANGES
+				END
+			END
+			PRINT "...done"
+		END
+	END ELSE BEGIN
+		FAIL "EDIT_TEMPLATE: string ~%file_list%~ appears to be malformed. Please stick to the following template: ~EXAMPLE, EXAMPLE2~"
+	END
+END
+
+////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////
+//	Template for cloning an existing resource
+////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////
+
+DEFINE_ACTION_FUNCTION "CLONE_TEMPLATE"
+STR_VAR
+	"edits" = ""
+	"editstring" = ""
+	"old_new" = ""
+	"file_ext" = ""
+RET
+	"new_resref"
+BEGIN
+	ACTION_IF (("%old_new%" STRING_MATCHES_REGEXP "^[^ %NL%%TAB%]+=>[^ %NL%%TAB%]+$") == 0) BEGIN
+		// Ex.: "BANDIT=>EXAMPLE"
+
+		// Get "%old%" and "%new%" resrefs
+		LAF "RETURN_KEY_VALUE"
+		STR_VAR
+			"list" = "%old_new%"
+		RET
+			"old_resref" = "key"
+			"new_resref" = "value"
+		END
+		PRINT ~LFO: Cloning %file_ext% file "%old_new%" and applying patch(es)...~
+		SILENT
+
+		// Make sure original file does exist!
+		ACTION_IF (FILE_EXISTS_IN_GAME "%old_resref%.%file_ext%") BEGIN
+		END ELSE BEGIN
+			FAIL "CLONE_TEMPLATE cannot clone the non-existing file ~%old_resref%.%file_ext%~"
+		END
+
+		ACTION_IF !(FILE_EXISTS_IN_GAME "%new_resref%.%file_ext%") BEGIN
+			ACTION_TO_LOWER "new_resref"
+			ACTION_TO_LOWER "file_ext"
+			// Apply the specified edits (if any, of course)
+			ACTION_IF ("%editstring%" STRING_COMPARE_CASE "") BEGIN
+				COPY_EXISTING "%old_resref%.%file_ext%" "override/%new_resref%.%file_ext%"
+					PATCH_IF ("%DEST_EXT%" STRING_EQUAL_CASE "CRE") BEGIN
+						LPF "FJ_CRE_VALIDITY" END
+					END
+					LPF "APPLY_PATCHES_INLINE"
+					STR_VAR
+						"editstring"
+					END
+				//BUT_ONLY_IF_IT_CHANGES // We want a clone regardless (think about just renaming a file...)
+			END
+			ACTION_IF ("%edits%" STRING_COMPARE_CASE "") BEGIN
+				COPY_EXISTING "%old_resref%.%file_ext%" "override/%new_resref%.%file_ext%"
+					PATCH_IF ("%DEST_EXT%" STRING_EQUAL_CASE "CRE") BEGIN
+						LPF "FJ_CRE_VALIDITY" END
+					END
+					LPF "APPLY_PATCHES"
+					STR_VAR
+						"edits"
+					END
+				//BUT_ONLY_IF_IT_CHANGES // We want a clone regardless (think about just renaming a file...)
+			END
+			PRINT "...done"
+		END ELSE BEGIN
+			PRINT "CLONE_TEMPLATE: file ~%new_resref%.%file_ext%~ already present, skipping..."
+		END
+	END ELSE BEGIN
+		FAIL "CLONE_TEMPLATE: string ~%old_new%~ appears to be malformed. Please stick to the following template: ~SW1H01=><modder_prefix>SW1H01~"
+	END
+END
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//	General template to apply patches from an ASSOCIATIVE_ARRAY
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+DEFINE_PATCH_FUNCTION "APPLY_PATCHES"
+STR_VAR
+	"edits" = ""	// Associative array
+BEGIN
+	PHP_EACH "%edits%" AS "function" => "arguments" BEGIN
+		PATCH_MATCH "%function%" WITH
+			"\(clone\|alter\|delete\)_effect[0-9]*"
+			"\(alter\|add\|delete\)_ability[0-9]*"
+			"add\(_global\)?_effect[0-9]*" BEGIN
+				PATCH_IF (("%function%" STRING_CONTAINS_REGEXP "[0-9]+$") == 0) BEGIN
+					INNER_PATCH_SAVE "function" "%function%" BEGIN
+						REPLACE_TEXTUALLY CASE_INSENSITIVE EVALUATE_REGEXP "[0-9]+$" ""	// Handle duplicates
+					END
+				END
+				LPF "%function%"
+				STR_VAR
+					"arguments"
+				END
+			END
+
+			"update\(_unidentified\)?_desc"
+			"\(say\|set\)\(_unidentified\)?_desc"
+			"\(say\|set\)_name[1-2]" BEGIN
+				LPF "%function%"
+				STR_VAR
+					"arguments"
+				END
+			END
+
+			DEFAULT
+				TO_UPPER "file_ext"
+				LPF "%file_ext%_%function%"
+				STR_VAR
+					"arguments"
+				END
+		END
+	END
+END
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//	Make sure to PRINT all files that do exist!
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+DEFINE_ACTION_FUNCTION "GET_ACTUAL_FILE_LIST"
+RET
+	"actual_file_list"
+BEGIN
+	// Init
+	OUTER_TEXT_SPRINT "actual_file_list" ""
+	// Main
+	OUTER_WHILE ("%file_list%" STRING_COMPARE_CASE "") BEGIN
+		LAF "RETURN_FIRST_ENTRY"
+		STR_VAR
+			"list" = "%file_list%"
+			"separator" = ", "
+		RET
+			"file_list" = "remaining_list"
+			"entry"
+		END
+		// Make sure "%entry%.%file_ext%" does exist in-game
+		// or has been ALLOW_MISSING'd (via the "allow_missing" variable)
+		ACTION_IF (FILE_EXISTS_IN_GAME "%entry%.%file_ext%") BEGIN
+			ACTION_IF ("%actual_file_list%" STRING_EQUAL_CASE "") BEGIN
+				OUTER_TEXT_SPRINT "actual_file_list" "%entry%"
+			END ELSE BEGIN
+				OUTER_TEXT_SPRINT "actual_file_list" "%actual_file_list% %entry%"
+			END
+		END ELSE BEGIN
+			ACTION_IF "%allow_missing%" BEGIN
+			END ELSE BEGIN
+				FAIL "EDIT_TEMPLATE cannot edit ~%entry%.%file_ext%~ most likely because the file does not exist as a game resource.%NL%Please set ~allow_missing~ to a positive integer if this particular file can be missing"
+			END
+		END
+	END
+END

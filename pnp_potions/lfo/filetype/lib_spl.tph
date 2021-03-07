@@ -1,0 +1,102 @@
+////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////
+//	Edit the specified SPL files
+//	Ex.: ~EXAMPLE EXAMPLE2~ // white-space separated
+////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////
+
+DEFINE_ACTION_FUNCTION "EDIT_SPELL"
+INT_VAR
+	"allow_missing" = 0
+STR_VAR
+	"edits" = ""
+	"editstring" = ""
+	"file_list" = ""
+BEGIN
+	LAUNCH_ACTION_FUNCTION "EDIT_TEMPLATE"
+	INT_VAR
+		"allow_missing"
+	STR_VAR
+		"edits"
+		"editstring"
+		"file_list"
+		"file_ext" = "SPL"
+	END
+END
+
+////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////
+//	Create the specified SPL files from scratch
+//	Ex.: ~EXAMPLE EXAMPLE2~ // white-space separated
+////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////
+
+DEFINE_ACTION_FUNCTION "MAKE_SPELL"
+STR_VAR
+	"edits" = ""
+	"editstring" = ""
+	"filename" = ""
+BEGIN
+	LAUNCH_ACTION_FUNCTION "MAKE_TEMPLATE"
+	STR_VAR
+		"edits"
+		"editstring"
+		"filename"
+		"file_ext" = "SPL"
+	END
+END
+
+////////////////////////////////////////////////////////////
+//	Creates a new SPL file
+////////////////////////////////////////////////////////////
+
+DEFINE_ACTION_FUNCTION "CREATE_SPL_FILE"
+STR_VAR
+	"filename" = ""
+BEGIN
+	ACTION_IF (STRING_LENGTH "%filename%" > 8) OR (STRING_LENGTH "%filename%" <= 0) BEGIN
+		FAIL "CREATE_SPL_FILE: the length of ~%filename%~ must belong to the interval (0,8]"
+	END
+	ACTION_TO_LOWER "filename"
+	COPY ".../pnp_potions-inline/blank" "override/%filename%.spl"
+		DELETE_BYTES 0x0 BUFFER_LENGTH
+		INSERT_BYTES 0x0 0x72	// 0d114
+		// Signature, Version
+		WRITE_ASCII 0x0 "SPL "
+		WRITE_ASCII 0x4 "V1  "
+		// Set default values
+		// General name and Identified name
+		WRITE_LONG NAME1 "-1"
+		WRITE_LONG NAME2 "-1"
+		// Flags
+		WRITE_LONG 0x18 BIT14	// Ignore dead/wild magic
+		// Type
+		WRITE_SHORT 0x1C 4	// Innate
+		WRITE_LONG 0x34 1	// Spell level
+		// General description and Identified description
+		WRITE_LONG UNIDENTIFIED_DESC "-1"
+		WRITE_LONG IDENTIFIED_DESC "-1"
+		// Abilities offset
+		WRITE_LONG 0x64 0x72
+		// Effects offset
+		WRITE_LONG 0x6A 0x72
+	BUT_ONLY_IF_IT_CHANGES
+END
+
+////////////////////////////////////////////////////////////
+//	Sets Spell icon (offset 0x3A)
+////////////////////////////////////////////////////////////
+
+DEFINE_PATCH_FUNCTION "SPL_spellbook_icon"
+STR_VAR
+	"arguments" = ""
+BEGIN
+	PATCH_IF ("%DEST_EXT%" STRING_EQUAL_CASE "SPL") BEGIN
+		PATCH_IF (STRING_LENGTH "%arguments%" > 8) OR (STRING_LENGTH "%arguments%" <= 0) BEGIN
+			PATCH_FAIL "~%DEST_FILE%~, SPL_spellbook_icon: the length of ~%arguments%~ must belong to the interval (0,8]"
+		END
+		WRITE_ASCIIE 0x3A "%arguments%" #8
+	END ELSE BEGIN
+		PATCH_FAIL "~%DEST_FILE%~, SPL_spellbook_icon: unexpected type of file"
+	END
+END

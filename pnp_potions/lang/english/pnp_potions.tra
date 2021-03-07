@@ -1,0 +1,7 @@
+@0 = "%id_name_string% : Halved effectiveness"
+@1 = "%id_name_string% : +50% effectiveness"
+@2 = "%id_name_string% : Permanent effectiveness (until dispelled)"
+@3 = "%id_name_string% : Doubled effectiveness"
+@4 = "%id_name_string% : Strength and Dexterity have been reduced by 1 permanently"
+@5 = "%id_name_string% : All active potion effects have been removed"
+@6 = "%id_name_string% : Nothing happens..."

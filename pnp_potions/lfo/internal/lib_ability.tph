@@ -1,0 +1,181 @@
+////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////
+//	ADD_SPELL_HEADER_EX
+//	– "projectile", "minimum_level" can now take numerical expressions
+////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////
+
+DEFINE_PATCH_FUNCTION "ADD_SPELL_HEADER_EX"
+BEGIN
+	LPF ~FJ_SPL_ITM_REINDEX~ END
+	SET "hs" = 0x28
+
+	READ_LONG 0x64 "ho"
+	READ_SHORT 0x68 "hc"
+	READ_LONG 0x6a "eo"
+	SET "___#insert_point" = ("%___#insert_point%" > "%hc%" || "%___#insert_point%" < 0) ? "%hc%" : "%___#insert_point%"
+	SET "___#copy_header" = ("%___#copy_header%" < 0) ? 0 : "%___#copy_header%"
+
+	PATCH_IF "%___#copy_header%" > "%hc%" BEGIN
+		PATCH_WARN ~Unable to copy %___#copy_header%th header, %DEST_FILE% contains only %hc% headers!~
+	END ELSE BEGIN
+		INSERT_BYTES ("%ho%" + "%___#insert_point%" * "%hs%") "%hs%"
+		SET "hc" += 1
+		SET "eo" += "%hs%"
+		PATCH_IF "%___#copy_header%" BEGIN
+			READ_SHORT ho+(___#copy_header - 1)*hs+0x1e ec
+			READ_SHORT ho+(___#copy_header - 1)*hs+0x20 ei
+			READ_ASCII eo+ei*0x30 effs (ec*0x30)
+			READ_ASCII ho+(___#copy_header - 1)*hs copy (hs)
+			WRITE_ASCIIE ho+___#insert_point*hs ~%copy%~ (hs)
+		END
+		WRITE_SHORT 0x68 "%hc%"
+		WRITE_LONG 0x6a "%eo%"
+
+		READ_SHORT 0x70 "ei" // technically, it is a counter
+		FOR ("i" = "%ho%"; "%i%" < "%ho%" + "%hc%" * "%hs%"; "i" += "%hs%") BEGIN
+			READ_SHORT ("%i%" + 0x1e) "ec"
+			WRITE_SHORT ("%i%" + 0x20) "%ei%"
+			SET "ei" += "%ec%"
+		END
+
+		PATCH_IF "%___#copy_header%" BEGIN
+			READ_SHORT ho+___#insert_point*hs+0x1e ec
+			READ_SHORT ho+___#insert_point*hs+0x20 ei
+			INSERT_BYTES eo+ei*0x30 ec*0x30
+			WRITE_ASCIIE eo+ei*0x30 ~%effs%~ (ec*0x30)
+		END ELSE BEGIN
+			SET "off" = "%ho%" + "%___#insert_point%" * "%hs%"
+
+			//WRITE_BYTE off ___#type
+			PATCH_MATCH "%___#type%" WITH
+				"[0-4]" BEGIN
+					WRITE_BYTE "%off%" "%___#type%"
+				END
+				DEFAULT
+					PATCH_FAIL "~%DEST_FILE%~, ADD_SPELL_HEADER_EX: ~type~ must be an integer belonging to the interval [0,4] (you provided ~%___#type%~)"
+			END
+
+			//WRITE_SHORT off+0x2 ___#location
+			PATCH_MATCH "%___#location%" WITH
+				"0" "2" "4" BEGIN
+					WRITE_SHORT ("%off%" + 0x2) "%___#location%"
+				END
+				DEFAULT
+					PATCH_FAIL "~%DEST_FILE%~, ADD_SPELL_HEADER_EX: ~location~ must be either 0 (Unknown, can be used for subspells), 2 (Spell), or 4 (Ability) (you provided ~%___#location%~)"
+			END
+
+			WRITE_ASCIIE ("%off%" + 0x4) ~%___#icon%~ #8
+
+			//WRITE_BYTE off+0xc ___#target
+			PATCH_MATCH "%___#target%" WITH
+				"[0-7]" BEGIN
+					WRITE_BYTE ("%off%" + 0xc) "%___#target%"
+				END
+				DEFAULT
+					PATCH_FAIL "~%DEST_FILE%~, ADD_SPELL_HEADER_EX: ~target~ must be an integer belonging to the interval [0,7] (you provided ~%___#target%~)"
+			END
+
+			//WRITE_BYTE off+0xd ___#target_count
+			PATCH_MATCH "%___#target_count%" WITH
+				"[0-9]+" BEGIN
+					WRITE_BYTE ("%off%" + 0xd) "%___#target_count%"
+				END
+				DEFAULT
+					PATCH_FAIL "~%DEST_FILE%~, ADD_SPELL_HEADER_EX: ~target_count~ must be an integer greater or equal than 0 (you provided ~%___#target_count%~)"
+			END
+
+			//WRITE_SHORT off+0xe ___#range
+			PATCH_MATCH "%___#range%" WITH
+				"[0-9]+" BEGIN
+					WRITE_SHORT ("%off%" + 0xe) "%___#range%"
+				END
+				DEFAULT
+					PATCH_FAIL "~%DEST_FILE%~, ADD_SPELL_HEADER_EX: ~range~ must be an integer greater or equal than 0 (you provided ~%___#range%~)"
+			END
+
+			//WRITE_SHORT off+0x10 ___#minimum_level
+			LPF "EVALUATE_EXPRESSION"
+			STR_VAR
+				"expression" = "%___#minimum_level%"
+			RET
+				"___#minimum_level" = "value"
+			END
+			WRITE_SHORT ("%off%" + 0x10) "%___#minimum_level%"
+
+			//WRITE_SHORT off+0x12 ___#casting_speed
+			LPF "EVALUATE_EXPRESSION"
+			STR_VAR
+				"expression" = "%___#casting_speed%"
+			RET
+				"___#casting_speed" = "value"
+			END
+			WRITE_SHORT ("%off%" + 0x12) "%___#casting_speed%"
+
+			//WRITE_SHORT off+0x26 ___#projectile
+			LPF "EVALUATE_EXPRESSION"
+			STR_VAR
+				"expression" = "%___#projectile%"
+			RET
+				"___#projectile" = "value"
+			END
+			WRITE_SHORT ("%off%" + 0x26) "%___#projectile%"
+		END
+	END
+END
+
+////////////////////////////////////////////////////////////////
+//	Helper function for ADD_(ITEM|SPELL)_HEADER_EX
+////////////////////////////////////////////////////////////////
+
+DEFINE_PATCH_FUNCTION ~FJ_SPL_ITM_REINDEX~
+BEGIN
+	PATCH_IF !(~%DEST_FILE%~ STRING_MATCHES_REGEXP ~^.+\.spl~) BEGIN
+		SET "hs" = 0x28
+		WRITE_LONG 0xc ~-1~ //Identified name
+		WRITE_LONG 0x54 ~-1~ //Identified description
+		PATCH_FOR_EACH "tz" IN "0x44" "0x48" "0x58" "0x5c" BEGIN
+			WRITE_LONG "%tz%" 0
+		END
+	END ELSE PATCH_IF !(~%DEST_FILE%~ STRING_MATCHES_REGEXP ~^.+\.itm~) BEGIN
+		SET "hs" = 0x38
+	END
+	READ_LONG 0x64 "hf" //Extended header offset
+	READ_SHORT 0x68 "hc" //Extended header count
+	READ_LONG 0x6a "fb" //Feature block table offset
+	READ_SHORT 0x70 "fc" //Feature block count
+	PATCH_IF (("%hf%" > "%fb%") AND ("%hc%" > 0)) BEGIN // Ardanis: fixed "hc > 1" to "hc > 0"
+		READ_ASCII "%hf%" ~eh~ ELSE ~fail~ ("%hs%" * "%hc%")
+		PATCH_IF (~%eh%~ STRING_EQUAL ~fail~) BEGIN
+			WHILE ((~%eh%~ STRING_EQUAL ~fail~) AND ("%hc%" > 0)) BEGIN
+				READ_ASCII "%hf%" ~eh~ ELSE ~fail~ ("%hs%" * "%hc%")
+				"hc" -= 1
+			END
+		END
+		DELETE_BYTES "%hf%" ("%hs%" * "%hc%")
+		SET "hf" = 0x72
+		WRITE_LONG 0x64 "%hf%"
+		WRITE_SHORT 0x68 "%hc%"
+		SET "fb" = (0x72 + ("%hs%" * "%hc%"))
+		WRITE_LONG 0x6a "%fb%"
+		PATCH_IF !(~%eh%~ STRING_EQUAL ~fail~) BEGIN
+			INSERT_BYTES "%hf%" ("%hs%" * "%hc%")
+			WRITE_ASCIIE "%hf%" ~%eh%~
+		END
+	END ELSE PATCH_IF (("%hf%" != 0x72) AND ("%hc%" == 0)) BEGIN
+		SET "hf" = 0x72
+		WRITE_LONG 0x64 "%hf%"
+	END
+	FOR ("i1" = 0; "%i1%" < ("%hs%" * "%hc%"); "i1" += "%hs%") BEGIN
+		WRITE_SHORT ("%hf%" + "%i1%" + 0x20) "%fc%" // Index into feature blocks
+		READ_SHORT ("%hf%" + "%i1%" + 0x1e) "cx" // Count of feature blocks
+		SET "fc" += "%cx%"
+	END
+	PATCH_IF (SOURCE_SIZE > (0x72 + ("%hs%" * "%hc%") + (0x30 * "%fc%"))) BEGIN
+		DELETE_BYTES (0x72 + ("%hs%" * "%hc%") + (0x30 * "%fc%")) (SOURCE_SIZE - (0x72 + ("%hs%" * "%hc%") + (0x30 * "%fc%")))
+	END
+
+	// added by Ardanis
+	WRITE_SHORT 0x6e 0
+
+END // end of function

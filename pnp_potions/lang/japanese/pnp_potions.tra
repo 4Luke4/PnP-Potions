@@ -1,0 +1,7 @@
+@0 = "%id_name_string% : 半減した効果"
+@1 = "%id_name_string% : +50%の効果"
+@2 = "%id_name_string% : 永続的な効果（払拭されるまで)"
+@3 = "%id_name_string% : 効果が倍増する"
+@4 = "%id_name_string% : 筋力と器用さが永久的に1減少しました。"
+@5 = "%id_name_string% : すべてのアクティブなポーションの効果が削除されました。"
+@6 = "%id_name_string% : 何も起こらない...。"

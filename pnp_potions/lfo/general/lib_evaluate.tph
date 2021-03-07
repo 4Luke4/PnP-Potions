@@ -1,0 +1,402 @@
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//	Handle when-clause when parsing ~add_effect~ and the like
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+DEFINE_PATCH_FUNCTION "EVALUATE_WHEN_CLAUSE"
+STR_VAR
+	"condition_value" = ""	// when=>(%is_bg1% || %is_bg2%) && RESOURCE_CONTAINS ~PROJECTL.IDS~ ~1arow11~
+RET
+	"success"
+BEGIN
+	// Init
+	SET "success" = 0	// False
+	// Main
+	LPF "EVALUATE_EXPRESSION"
+	STR_VAR
+		"expression" = "%condition_value%"
+	RET
+		"success" = "value"
+	END
+END
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//	This is to properly handle "number_to_add" (when multiple effects are combined into a single "add_effect=>value" instruction
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+DEFINE_PATCH_FUNCTION "GET_VARIABLE_LIST"
+RET
+	"counter"
+RET_ARRAY
+	"___#match_opcode_list"	// ALTER_EFFECT
+	"___#match_timing_list"	// DELETE_EFFECT, ALTER_EFFECT
+	"___#resource_list"	// ADD_SPELL_EFFECT
+BEGIN
+	// Init
+	SET "counter" = 1
+	// Main
+	PATCH_FOR_EACH "internal_var" IN
+		"___#match_opcode"
+		"___#match_timing"
+		"___#resource"
+	BEGIN
+		TEXT_SPRINT "temp_var" "%%internal_var%%"
+		PATCH_IF (VARIABLE_IS_SET "temp_var") BEGIN
+			PATCH_MATCH "%temp_var%" WITH
+				"^{[^.,;{}%NL%%TAB%]+,[^.,;{}%NL%%TAB%]+\(,[^.,;{}%NL%%TAB%]+\)*}$" BEGIN
+					// "%temp_var%" = {1,2,3}
+					INNER_PATCH_SAVE "temp_var" "%temp_var%" BEGIN
+						// Make sure to remove unwanted " " (space) characters – Consider them as "typos"...
+						REPLACE_TEXTUALLY CASE_SENSITIVE EVALUATE_REGEXP " *, *" ","
+						REPLACE_TEXTUALLY CASE_SENSITIVE EVALUATE_REGEXP "^{" ""
+						REPLACE_TEXTUALLY CASE_SENSITIVE EVALUATE_REGEXP "}$" ""
+					END
+					// "%temp_var%" = 1,2,3
+					// Sanity check
+					LPF "LENGTH_OF_LIST"
+					STR_VAR
+						"list" = "%temp_var%"
+						"separator" = ","
+					RET
+						"length"
+					END
+					PATCH_IF ("%counter%" != 1) BEGIN
+						PATCH_IF ("%counter%" != "%length%") BEGIN
+							PATCH_FAIL "~%DEST_FILE%~, GET_VARIABLE_LIST: ~%internal_var%_list~ contains %length% elements whereas the previous list contains %counter% elements"
+						END ELSE BEGIN
+							SET "counter" = "%length%"
+						END
+					END ELSE BEGIN
+						SET "counter" = "%length%"
+					END
+					// Init
+					CLEAR_ARRAY "%internal_var%_list"
+					SET "i" = 0
+					// Main
+					WHILE ("%temp_var%" STRING_COMPARE_CASE "") BEGIN
+						LPF "RETURN_FIRST_ENTRY"
+						STR_VAR
+							"list" = "%temp_var%"
+							"separator" = ","
+						RET
+							"temp_var" = "remaining_list"	// 2,3
+							"entry"	// 1
+						END
+						SET "i" += 1
+						TEXT_SPRINT $~%internal_var%_list~(~%i%~) "%entry%"
+					END
+				END
+				"^{[^\.,;{}%NL%%TAB%]+;[^\.,;{}%NL%%TAB%]+;[^\.,;{}%NL%%TAB%]+}$" BEGIN
+					// FOR-loop (C style, i.e.: initVal;step;endVal — Increment index by the value step on each iteration, or decrements index when step is negative)
+					// "%temp_var%" = {15;6;(6*5)+15}
+					INNER_PATCH "%temp_var%" BEGIN
+						// Make sure to remove unwanted " " (space) characters – Consider them as "typos"...
+						REPLACE_TEXTUALLY CASE_SENSITIVE EVALUATE_REGEXP " *; *" ";"
+						REPLACE_EVALUATE CASE_SENSITIVE "^{\([^\.,;{}%NL%%TAB%]+\);\([^\.,;{}%NL%%TAB%]+\);\([^\.,;{}%NL%%TAB%]+\)}$" BEGIN
+							TEXT_SPRINT "initVal" "%MATCH1%"	// 15
+							TEXT_SPRINT "step" "%MATCH2%"	// 6
+							TEXT_SPRINT "endVal" "%MATCH3%"	// 6*5+15
+						END
+						""
+					END
+					// Evaluate them (if needed!)
+					PATCH_FOR_EACH "loop_var" IN
+						"initVal"
+						"step"
+						"endVal"
+					BEGIN
+						LPF "EVALUATE_EXPRESSION"
+						STR_VAR
+							"expression" = "%%loop_var%%"
+						RET
+							"%loop_var%" = "value"
+						END
+					END
+					// Init
+					CLEAR_ARRAY "%internal_var%_list"
+					SET "i" = 0
+					// Main
+					PATCH_IF ("%step%" < 0) BEGIN
+						SET "step" = "%step%" * "-1"	// Change sign
+						FOR ("entry" = "%initVal%"; "%entry%" >= "%endVal%"; "entry" -= "%step%") BEGIN
+							SET "i" += 1
+							TEXT_SPRINT $~%internal_var%_list~(~%i%~) "%entry%"
+						END
+					END ELSE BEGIN
+						FOR ("entry" = "%initVal%"; "%entry%" <= "%endVal%"; "entry" += "%step%") BEGIN
+							SET "i" += 1
+							TEXT_SPRINT $~%internal_var%_list~(~%i%~) "%entry%"
+						END
+					END
+					// Sanity check
+					PATCH_IF ("%counter%" != 1) BEGIN
+						PATCH_IF ("%counter%" != "%i%") BEGIN
+							PATCH_FAIL "~%DEST_FILE%~, GET_VARIABLE_LIST: ~%internal_var%_list~ contains %i% elements whereas the previous list contains %counter% elements"
+						END ELSE BEGIN
+							SET "counter" = "%i%"
+						END
+					END ELSE BEGIN
+						SET "counter" = "%i%"
+					END
+				END
+				"^{[^\.,;{}%NL%%TAB%]+\.\.[^\.,;{}%NL%%TAB%]+}$" BEGIN
+					// FOR-loop (PERL style, i.e.: initVal..endVal — "%initVal%" is incremented by 1 (hardcoded)
+					// "%temp_var%" = {1..8}
+					INNER_PATCH "%temp_var%" BEGIN
+						// Make sure to remove unwanted " " (space) characters – Consider them as "typos"...
+						REPLACE_TEXTUALLY CASE_SENSITIVE EVALUATE_REGEXP " *\.\. *" ".."
+						REPLACE_EVALUATE CASE_SENSITIVE "^{\([^\.,;{}%NL%%TAB%]+\)\.\.\([^\.,;{}%NL%%TAB%]+\)}$" BEGIN
+							TEXT_SPRINT "initVal" "%MATCH1%"	// 1
+							TEXT_SPRINT "endVal" "%MATCH2%"	// 8
+						END
+						""
+					END
+					// Evaluate them (if needed!)
+					PATCH_FOR_EACH "loop_var" IN
+						"initVal"
+						"endVal"
+					BEGIN
+						LPF "EVALUATE_EXPRESSION"
+						STR_VAR
+							"expression" = "%%loop_var%%"
+						RET
+							"%loop_var%" = "value"
+						END
+					END
+					// Init
+					CLEAR_ARRAY "%internal_var%_list"
+					SET "i" = 0
+					SET "step" = 1
+					// Main
+					FOR ("entry" = "%initVal%"; "%entry%" <= "%endVal%"; "entry" += "%step%") BEGIN
+						SET "i" += 1
+						TEXT_SPRINT $~%internal_var%_list~(~%i%~) "%entry%"
+					END
+					// Sanity check
+					PATCH_IF ("%counter%" != 1) BEGIN
+						PATCH_IF ("%counter%" != "%i%") BEGIN
+							PATCH_FAIL "~%DEST_FILE%~, GET_VARIABLE_LIST: ~%internal_var%_list~ contains %i% elements whereas the previous list contains %counter% elements"
+						END ELSE BEGIN
+							SET "counter" = "%i%"
+						END
+					END ELSE BEGIN
+						SET "counter" = "%i%"
+					END
+				END
+				DEFAULT
+					// Assume it's an ordinary string
+					PATCH_IF (("%temp_var%" STRING_CONTAINS_REGEXP "[\[\]{}.,;%NL%%TAB% ]") == 0) BEGIN
+						// If it contains one of those special characters...
+						// ... but what about things like "when=>(RESOURCE_CONTAINS ~PROJECTL.IDS~ ~1arow11~)"? See, there's a "." there, but the "." character is forbidden...
+						// Well, should the need arise, we'll tweak the regexp...
+						PATCH_FAIL "~%DEST_FILE%~, GET_VARIABLE_LIST: string ~%temp_var%~ appears to be malformed. Please stick to the following template(s): ~{6;6;(6 * 5) + 15}~, ~{12,13,155}~, ~{SPWI112,SPPR401}~, ~{1..8}~"
+					END ELSE BEGIN
+						CLEAR_ARRAY ~%internal_var%_list~
+						TEXT_SPRINT $~%internal_var%_list~(~1~) "%temp_var%"
+					END
+			END
+		END
+	END
+END
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//	Attempts to evaluate the given expression
+//
+//	This is mainly needed to handle Algebraic/Bitwise/Comparison Operators correctly
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+DEFINE_PATCH_FUNCTION "EVALUATE_EXPRESSION"
+INT_VAR
+	"effect_number" = "-1"
+	"current_value" = 0	// E.g.: SSHORT_AT (ip + 0x14)
+STR_VAR
+	"expression" = ""
+RET
+	"value"
+BEGIN
+	// Initialize
+	TEXT_SPRINT "value" "%expression%"
+	PATCH_IF !(IS_AN_INT "value") BEGIN
+		// Do not waste time if it's just an integer...
+		// Main
+		INNER_PATCH_SAVE "value" "%value%" BEGIN
+			// Algebraic Operators
+			REPLACE_TEXTUALLY CASE_SENSITIVE EXACT_MATCH "+" " + "	// Addition
+			REPLACE_TEXTUALLY CASE_SENSITIVE EVALUATE_REGEXP ~~~~~\([^"~]\)-~~~~~ "\1 - "	// Subtraction – Negative numbers need a little care. This function expects them to be properly wrapped around ~~ or "", i.e.: "-9" or ~-9~). As a result, always use literal bit values (f.i. BIT6 instead of %BIT6%) so that things like %BIT31% do not turn up being negative (-2147483648 in this case)
+			REPLACE_TEXTUALLY CASE_SENSITIVE EVALUATE_REGEXP "\([^\*]\)\*\([^\*]\)" "\1 * \2"	// Multiplication – Things like "3*~-9~" should turn into "3 * ~-9~" instead of "3 * 9~"
+			REPLACE_TEXTUALLY CASE_SENSITIVE EXACT_MATCH "/" " / "	// Division
+			REPLACE_TEXTUALLY CASE_SENSITIVE EXACT_MATCH "**" " ** "	// Exponentiation
+			REPLACE_TEXTUALLY CASE_SENSITIVE EVALUATE_REGEXP "\(REM\|MODULO\)" " \1 "	// An operation that returns the remainder of a division between two numbers
+			// Arithmetic comparison: ==, !=, >, >=, <, <=
+			REPLACE_TEXTUALLY CASE_SENSITIVE EXACT_MATCH "==" " == "	// Integer Equality
+			REPLACE_TEXTUALLY CASE_SENSITIVE EXACT_MATCH "!=" " != "	// Integer Inequality
+			REPLACE_TEXTUALLY CASE_SENSITIVE EVALUATE_REGEXP "\([^>=]\)>\([^>=]\)" "\1 > \2"	// Greater than
+			REPLACE_TEXTUALLY CASE_SENSITIVE EXACT_MATCH ">=" " >= "	// Greater than or equal to
+			REPLACE_TEXTUALLY CASE_SENSITIVE EVALUATE_REGEXP "\([^<=]\)<\([^<=]\)" "\1 < \2"	// Less than
+			REPLACE_TEXTUALLY CASE_SENSITIVE EXACT_MATCH "<=" " <= "	// Less than or equal to
+			// Bitwise Operators
+			REPLACE_TEXTUALLY CASE_SENSITIVE EXACT_MATCH ">>" " >> "	// BLSR (Bitwise Logical Shift Right)
+			REPLACE_TEXTUALLY CASE_SENSITIVE EXACT_MATCH "<<" " << "	// BLSL (Bitwise Logical Shift Left)
+			REPLACE_TEXTUALLY CASE_SENSITIVE EXACT_MATCH "BASR" " BASR "	// Bitwise Arithmetic Shift Right
+			REPLACE_TEXTUALLY CASE_SENSITIVE EVALUATE_REGEXP "\([^|]\)|\([^|]\)" "\1 | \2"	// BOR (Bitwise Or)
+			REPLACE_TEXTUALLY CASE_SENSITIVE EVALUATE_REGEXP "\([^&]\)&\([^&]\)" "\1 & \2"	// BAND (Bitwise And)
+			REPLACE_TEXTUALLY CASE_SENSITIVE EXACT_MATCH "^^" " ^^ "	// BXOR (Bitwise Exclusive Or)
+			// IF ... THEN ... ELSE ...
+			REPLACE_TEXTUALLY CASE_SENSITIVE EXACT_MATCH "?" " ? "	// IF
+			REPLACE_TEXTUALLY CASE_SENSITIVE EXACT_MATCH ":" " : "	// ELSE
+			// Propositional logic
+			REPLACE_TEXTUALLY CASE_SENSITIVE EXACT_MATCH "&&" " && "	// AND
+			REPLACE_TEXTUALLY CASE_SENSITIVE EXACT_MATCH "||" " || "	// OR
+			// Clean out multiple " " characters
+			REPLACE_TEXTUALLY CASE_SENSITIVE EVALUATE_REGEXP " +" " "	// Space
+		END
+		// Check for balanced brackets ()
+		PATCH_IF (("%value%" STRING_CONTAINS_REGEXP "[()]") == 0) BEGIN
+			PATCH_WITH_SCOPE BEGIN
+				INNER_PATCH "%value%" BEGIN
+					COUNT_REGEXP_INSTANCES CASE_INSENSITIVE EXACT_MATCH "(" "x"
+					COUNT_REGEXP_INSTANCES CASE_INSENSITIVE EXACT_MATCH ")" "y"
+				END
+				PATCH_IF ("%x%" != "%y%") BEGIN
+					PATCH_FAIL "~%DEST_FILE%~, EVALUATE_EXPRESSION: Unbalanced expression!%NL%There are %x% ~(~ vs. %y% ~)~ in ~%value%~"
+				END
+			END
+		END
+		// Handle THIS/STHIS
+		LPF "EVALUATE_THIS_STHIS"
+		INT_VAR
+			"current_value"
+		STR_VAR
+			"input" = "%value%"
+		RET
+			"value" = "output"
+		END
+		// Handle TRA refs
+		PATCH_MATCH "%effect_number%" WITH
+			"103" "139" "180" "206" "253" "254" "267" "290" "319" "330" BEGIN
+				LPF "RESOLVE_STR_REF"
+				STR_VAR
+					"input" = "%value%"
+				RET
+					"value" = "output"
+				END
+			END
+			DEFAULT
+		END
+		// Outputs numerical value
+		//PATCH_PRINT "~%DEST_FILE%~, EVALUATE_EXPRESSION: evaluating ~%value%~..."
+		//PATCH_SILENT
+		LPF "REINCLUDE_THIS"
+		STR_VAR
+			"input" = "%value%"
+		RET
+			"value" = "output"
+		END
+	END
+END
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//	Evaluate Effect savetype (e.g. Spell or BypassMI)
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+DEFINE_PATCH_FUNCTION "EVALUATE_EFFECT_SAVETYPE"
+INT_VAR
+	"current_value" = 0
+STR_VAR
+	"input" = ""
+RET
+	"output"
+BEGIN
+	TEXT_SPRINT "output" "%input%"
+	// Replace literal strings with their values
+	CLEAR_ARRAY "savetype_value"
+	DEFINE_ASSOCIATIVE_ARRAY "savetype_value" BEGIN
+		"Spell" => "%BIT0%"
+		"Breath" => "%BIT1%"
+		"\(Paralyze\|Poison\|Death\)" => "%BIT2%"
+		"\(Rod\|Staff\|Wand\)" => "%BIT3%"
+		"\(Petrify\|Polymorph\)" => "%BIT4%"
+		"BypassMI" => "%BIT24%"
+		"IgnoreDifficulty" => "%BIT25%"
+	END
+	PHP_EACH "savetype_value" AS "savetype" => "value" BEGIN
+		PATCH_IF (("%output%" STRING_CONTAINS_REGEXP "\b%savetype%\b") == 0) BEGIN
+			INNER_PATCH_SAVE "output" "%output%" BEGIN
+				REPLACE_TEXTUALLY CASE_SENSITIVE EVALUATE_REGEXP "\b%savetype%\b" "%value%"
+			END
+		END
+	END
+	// Outputs numerical value
+	LPF "EVALUATE_EXPRESSION"
+	INT_VAR
+		"current_value"
+	STR_VAR
+		"expression" = "%output%"
+	RET
+		"output" = "value"
+	END
+END
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//	This is needed just to handle things like "parameter1=>@12"
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+DEFINE_PATCH_FUNCTION "RESOLVE_STR_REF"
+STR_VAR
+	"input" = ""
+RET
+	"output"
+BEGIN
+	// Init
+	SET "output" = "-1"
+	// Sanity check
+	PATCH_IF (("%input%" STRING_MATCHES_REGEXP "^@[0-9]+$") == 0) BEGIN
+		TEXT_SPRINT "input" "SET output = RESOLVE_STR_REF (%input%)"
+		INNER_ACTION BEGIN
+			COPY - ".../pnp_potions-inline/blank" "override/temp_file.tpp"
+				DELETE_BYTES 0x0 BUFFER_LENGTH
+				INSERT_BYTES 0x0 (STRING_LENGTH "%input%")
+				WRITE_ASCIIE 0x0 "%input%"
+			BUT_ONLY_IF_IT_CHANGES
+		END
+		PATCH_REINCLUDE "override/temp_file.tpp"
+	END ELSE BEGIN
+		PATCH_FAIL "~%DEST_FILE%~, RESOLVE_TRA_REFERENCE: string ~%input%~ appears to be malformed. Please stick to the following template(s): ~say_name=>@0~ or ~parameter1=>@30~"
+	END
+END
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//	Evaluate THIS / STHIS
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+DEFINE_PATCH_FUNCTION "EVALUATE_THIS_STHIS"
+INT_VAR
+	"current_value" = 0	// E.g.: SSHORT_AT ("%ip%" + 0x14)
+STR_VAR
+	"input" = ""
+RET
+	"output"
+BEGIN
+	TEXT_SPRINT "output" "%input%"
+	// Main
+	PATCH_IF (("%output%" STRING_CONTAINS_REGEXP "\(THIS\|STHIS\)") == 0) BEGIN
+		INNER_PATCH_SAVE "output" "%output%" BEGIN
+			PATCH_IF ("%current_value%" < 0) BEGIN
+				REPLACE_TEXTUALLY CASE_SENSITIVE EVALUATE_REGEXP "\(THIS\|STHIS\)" "~%current_value%~"
+			END ELSE BEGIN
+				REPLACE_TEXTUALLY CASE_SENSITIVE EVALUATE_REGEXP "\(THIS\|STHIS\)" "%current_value%"
+			END
+		END
+	END
+END

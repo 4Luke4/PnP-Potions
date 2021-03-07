@@ -1,0 +1,144 @@
+ACTION_IF !(VARIABLE_IS_SET "lfo_installed") BEGIN
+
+	OUTER_SET "lfo_installed" = 1
+
+	///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	// Sanity check for AUTO_EVAL_STRINGS
+	///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+	WITH_SCOPE BEGIN
+		OUTER_TEXT_SPRINT "y" "x"
+		OUTER_TEXT_SPRINT "z" "y"
+		ACTION_IF !("%%z%%" STRING_EQUAL "x") BEGIN
+			FAIL "AUTO_EVAL_STRINGS is not set (you need to include it in your tp2 preamble to use LFO)"
+		END
+	END
+
+	// blank file
+
+	<<<<<<<< .../pnp_potions-inline/blank
+	>>>>>>>>
+
+	//////////////////////////////////////////////////////////////
+	// Platform-specific line breaks
+	//////////////////////////////////////////////////////////////
+
+	ACTION_IF (~%WEIDU_OS%~ STR_EQ ~win32~) BEGIN
+		OUTER_TEXT_SPRINT "NL" ~%WNL%~
+	END ELSE BEGIN
+		OUTER_TEXT_SPRINT "NL" ~%LNL%~
+	END
+
+	//////////////////////////////////////////////////////////////
+	/// Check what install we're running on
+	///
+	/// (We do this once only so as to localise any code changes
+	/// if GAME_IS changes).
+	//////////////////////////////////////////////////////////////
+
+	OUTER_SET "enhanced_edition" = (GAME_IS "bgee bg2ee iwdee eet") AND (FILE_EXISTS ~engine.lua~) ? 1 : 0
+	OUTER_SET "is_bg1" = (GAME_IS "bgee") ? 1 : 0
+	OUTER_SET "is_bg2" = (GAME_IS "bg2ee") ? 1 : 0
+	OUTER_SET "is_bg" = (GAME_IS "bgee bg2ee") ? 1 : 0
+	OUTER_SET "is_iwd" = (GAME_IS "iwdee") ? 1 : 0
+
+	//////////////////////////////////////////////////////////////
+	/// Set the default variables
+	//////////////////////////////////////////////////////////////
+
+	// Set "mod_root" to your mod directory.
+	// Remember that the standard variable MOD_FOLDER derives its value from the BACKUP string.
+	// As you set your BACKUP string to a location outside the mod folder,
+	// you should redefine MOD_FOLDER to refer to the correct path in your ALWAYS block.
+
+	ACTION_IF !(VARIABLE_IS_SET ~mod_root~) BEGIN
+		OUTER_PATCH_SAVE "mod_root" "%TP2_BASE_NAME%" BEGIN
+			REPLACE_TEXTUALLY CASE_INSENSITIVE EVALUATE_REGEXP "\.tp2$" ""
+		END
+	END
+
+	// Set this to a common location where backups etc can be stored, so we don't clutter
+	// the user directory too much. DavidW suggests "weidu_external", and the program will default
+	// to that if you don't set it explicitly. (SCS and Wheels used stratagems_external but
+	// something more neutral makes sense if others want to share.)
+
+	ACTION_IF !(VARIABLE_IS_SET ~external_loc~) BEGIN
+		OUTER_TEXT_SPRINT "external_loc" "weidu_external"
+	END
+
+	// Set this to the name of the subfolder in your mod where you store your tra files. "lang"
+	// is pretty common, and is the default value; if you use "lang" you don't need to set this
+	// variable explicitly.
+
+	ACTION_IF !(VARIABLE_IS_SET ~tra_base~) BEGIN
+		OUTER_TEXT_SPRINT "tra_base" "lang"
+	END
+
+	// Set this to a language that is guaranteed to have all strings present. The default assumption
+	// is that this language is English; you don't need to set "base_language" if that's true.
+
+	ACTION_IF !(VARIABLE_IS_SET ~base_language~) BEGIN
+		OUTER_TEXT_SPRINT "base_language" "english"
+	END
+
+	// Set this to the name of the tra file where your setup strings (component names and the like) live.
+	// The default assumption is that they live in "setup.tra".
+
+	ACTION_IF !(VARIABLE_IS_SET ~tra_setup~) BEGIN
+		OUTER_TEXT_SPRINT "tra_setup" "setup"
+	END
+
+	ACTION_IF !(VARIABLE_IS_SET ~tra_loc~) BEGIN
+		OUTER_TEXT_SPRINT "tra_loc" "%mod_root%/%tra_base%"
+	END
+
+	//////////////////////////////////////////////////////////////
+	/// make the external folders
+	//////////////////////////////////////////////////////////////
+
+	MKDIR "%external_loc%/%mod_root%/workspace"
+	MKDIR "%external_loc%/%mod_root%/data"
+	MKDIR "%external_loc%/%mod_root%/markers"
+	MKDIR "%external_loc%/%mod_root%/warnings"
+
+	//////////////////////////////////////////////////////////////
+	/// Set variables for the external locations
+	//////////////////////////////////////////////////////////////
+
+	OUTER_TEXT_SPRINT "workspace" "%external_loc%/%mod_root%/workspace"
+	OUTER_TEXT_SPRINT "external_data" "%external_loc%/%mod_root%/data"
+	OUTER_TEXT_SPRINT "marker_loc" "%external_loc%/%mod_root%/markers"
+	OUTER_TEXT_SPRINT "warning_loc" "%external_loc%/%mod_root%/warnings"
+
+	//////////////////////////////////////////////////
+	//// Include core function library
+	//////////////////////////////////////////////////
+
+	ACTION_BASH_FOR "%mod_root%/lfo/general" "^.+\.tph$" BEGIN
+		INCLUDE "%BASH_FOR_FILESPEC%"
+	END
+
+	//////////////////////////////////////////////////
+	//// Include file-specific function library
+	//////////////////////////////////////////////////
+
+	ACTION_BASH_FOR "%mod_root%/lfo/filetype" "^.+\.tph$" BEGIN
+		INCLUDE "%BASH_FOR_FILESPEC%"
+	END
+
+	//////////////////////////////////////////////////
+	//// Include advanced function library
+	//////////////////////////////////////////////////
+
+	ACTION_BASH_FOR "%mod_root%/lfo/advanced" "^.+\.tph$" BEGIN
+		INCLUDE "%BASH_FOR_FILESPEC%"
+	END
+
+	//////////////////////////////////////////////////
+	//// Include internal function library (tweaked WeiDU functions)
+	//////////////////////////////////////////////////
+
+	ACTION_BASH_FOR "%mod_root%/lfo/internal" "^.+\.tph$" BEGIN
+		INCLUDE "%BASH_FOR_FILESPEC%"
+	END
+END

@@ -1,0 +1,79 @@
+////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////
+//	add_ability
+//	– Add an ability (extended header) based on the specified parameters
+////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////
+
+DEFINE_PATCH_FUNCTION "add_ability"
+STR_VAR
+	"arguments" = ""
+BEGIN
+	PATCH_MATCH "%DEST_EXT%" WITH
+		"SPL" BEGIN
+			PATCH_MATCH "%arguments%" WITH
+				"^default$"
+				"^[^ ,{}%NL%%TAB%]+=>[^%NL%%TAB%]+\(, [^ ,{}%NL%%TAB%]+=>[^%NL%%TAB%]+\)*$" BEGIN
+					// Set default values
+					// INT_VAR
+					SET "___#type" = 1	// Melee
+					SET "___#location" = 4	// Ability
+					SET "___#target" = 1	// Living actor
+					PATCH_FOR_EACH "default_var" IN
+						"___#target_count"
+						"___#range"
+					BEGIN
+						SET "%default_var%" = 0
+					END
+					SET "___#projectile" = 1	// We cannot use IDS_OF_SYMBOL (~MISSILE~ ~None~) for the time being – See here for further details => https://github.com/WeiDUorg/weidu/issues/188#issuecomment-817908746
+					SET "___#insert_point" = "-1"	// Last
+					SET "___#copy_header" = 0	// Unused for the time being...
+					// STR_VAR
+					TEXT_SPRINT "___#icon" ""	// Empty
+					// These can take numerical/literal expressions
+					TEXT_SPRINT "___#minimum_level" "1"
+					TEXT_SPRINT "___#casting_speed" "0"
+					// Overwrite default values if needed
+					WHILE ("%arguments%" STRING_COMPARE_CASE "") BEGIN
+						LPF "RETURN_FIRST_ENTRY"
+						STR_VAR
+							"list" = "%arguments%"
+							"separator" = ", "
+						RET
+							"arguments" = "remaining_list"
+							"key_value" = "entry"	// Ex.: dicenumber=>1
+						END
+						LPF "RETURN_KEY_VALUE"
+						STR_VAR
+							"list" = "%key_value%"
+						RET
+							"key"
+							"value"
+						END
+						PATCH_MATCH "%key%" WITH
+							"type"
+							"location"
+							"target\(_count\)?"
+							"range"
+							"minimum_level"
+							"casting_speed"
+							"icon"
+							"projectile"
+							"insert_point" BEGIN
+								TEXT_SPRINT "___#%key%" "%value%"
+							END
+							DEFAULT
+								PATCH_FAIL "~%DEST_FILE%~, add_ability: unknown variable ~%key%~"
+						END
+					END
+					// Main
+					LPF "ADD_SPELL_HEADER_EX" END
+				END
+				DEFAULT
+					PATCH_FAIL "~%DEST_FILE%~, add_ability: string ~%arguments%~ appears to be malformed. Please stick to the following template: ~default~ or ~type=>1, target=>5, projectile=>190, casting_speed=>1~"
+			END
+		END
+		DEFAULT
+			PATCH_FAIL "~%DEST_FILE%~, add_ability: unexpected type of file"
+	END
+END

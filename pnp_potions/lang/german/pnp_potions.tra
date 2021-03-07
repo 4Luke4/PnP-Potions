@@ -1,0 +1,7 @@
+@0 = "%id_name_string% : Halbierte Wirksamkeit"
+@1 = "%id_name_string% : +50% Wirksamkeit"
+@2 = "%id_name_string% : Permanente Wirksamkeit (bis zur Aufhebung)"
+@3 = "%id_name_string% : Verdoppelte Wirksamkeit"
+@4 = "%id_name_string% : Stärke und Geschicklichkeit wurden dauerhaft um 1 reduziert"
+@5 = "%id_name_string% : Alle aktiven Zaubertrank-Effekte wurden entfernt"
+@6 = "%id_name_string% : Nichts passiert..."

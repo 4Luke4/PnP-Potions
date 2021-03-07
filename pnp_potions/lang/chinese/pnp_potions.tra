@@ -1,0 +1,7 @@
+@0 = "%id_name_string% : 效果减半"
+@1 = "%id_name_string% : +50%的有效性"
+@2 = "%id_name_string% : 永久有效（直到被驱散)"
+@3 = "%id_name_string% : 效益翻倍"
+@4 = "%id_name_string% : 力量和灵巧永久地减少了1"
+@5 = "%id_name_string% : 所有的主动药水效果都已被移除"
+@6 = "%id_name_string% : 什么也没发生..."

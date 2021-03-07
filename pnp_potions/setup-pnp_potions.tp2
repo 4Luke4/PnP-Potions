@@ -1,0 +1,142 @@
+////////////////////////////////////////////////////////////////////////////////////////////
+/// The BACKUP directory has to be ~%external_loc%/backup/%mod_root%, as defined later
+///
+/// Because BACKUP is read first, it has to be hardcoded
+////////////////////////////////////////////////////////////////////////////////////////////
+
+BACKUP ~weidu_external/pnp_potions/backup~
+
+////////////////////////////////////////////////////////////////////////////////////////////
+/// This is all standard (but the immutability function library assumes AUTO_EVAL_STRINGS
+/// so it needs to be set)
+/////////////////////////////////////////////////////////////////////////////////////////////
+
+SUPPORT ~https://github.com/4Luke4/PnP-Potions/issues~
+VERSION ~v1.0~
+README ~pnp_potions/doc/readme-pnp_potions.pdf~
+
+AUTO_EVAL_STRINGS
+//MODDER "setup_tra" "none" "area_variables" "fail" "missing_extern" "fail" "missing_resref" "fail" "ict2_actions" "fail" "missing_eval" "none" "overwriting_file" "none" "fun_args" "fail"
+
+ALWAYS
+	INCLUDE "pnp_potions/lib/always.tph"
+END
+
+////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////
+////	Language section
+////
+////    The links here again have to be hardcoded (no variables). 
+////    The base structure should look like this template, with the 
+////    variable values filled in manually:
+////
+////
+////    LANGUAGE
+////    "Francais"
+////    FRENCH
+////
+////    "[mod_root]/[tra_base]/[base_language]/[tra_setup].tra"
+////    "[external_loc]/lang/[mod_root]/[base_language]/[tra_setup].tra"
+////    "[mod_root]/[tra_base]/french/[tra_setup].tra"
+////    "[external_loc]/lang/[mod_root]/french/[tra_setup].tra"
+////
+////
+////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////
+
+LANGUAGE
+	~English~
+	~english~
+	~pnp_potions/lang/english/setup.tra~
+
+LANGUAGE
+	"Italiano (Luke)"
+	"italian"
+	~pnp_potions/lang/english/setup.tra~
+	~pnp_potions/lang/italian/setup.tra~
+
+LANGUAGE
+	"Français (Luke)"
+	"french"
+	~pnp_potions/lang/english/setup.tra~
+	~pnp_potions/lang/french/setup.tra~
+
+LANGUAGE
+	"Deutsch (Luke)"
+	"german"
+	~pnp_potions/lang/english/setup.tra~
+	~pnp_potions/lang/german/setup.tra~
+
+LANGUAGE
+	"Español (Luke)"
+	"spanish"
+	~pnp_potions/lang/english/setup.tra~
+	~pnp_potions/lang/spanish/setup.tra~
+
+LANGUAGE
+	"简体中文 (Luke)"
+	"chinese"
+	~pnp_potions/lang/english/setup.tra~
+	~pnp_potions/lang/chinese/setup.tra~
+
+LANGUAGE
+	"Русский (Luke)"
+	"russian"
+	~pnp_potions/lang/english/setup.tra~
+	~pnp_potions/lang/russian/setup.tra~
+
+LANGUAGE
+	"Polski (Luke)"
+	"polish"
+	~pnp_potions/lang/english/setup.tra~
+	~pnp_potions/lang/polish/setup.tra~
+
+LANGUAGE
+	"Português (Luke)"
+	"portuguese"
+	~pnp_potions/lang/english/setup.tra~
+	~pnp_potions/lang/portuguese/setup.tra~
+
+LANGUAGE
+	"日本語 (Luke)"
+	"japanese"
+	~pnp_potions/lang/english/setup.tra~
+	~pnp_potions/lang/japanese/setup.tra~
+
+LANGUAGE
+	"Magyar (Luke)"
+	"hungarian"
+	~pnp_potions/lang/english/setup.tra~
+	~pnp_potions/lang/hungarian/setup.tra~
+
+////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////
+////	Components start here
+////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////
+
+BEGIN @1000000
+	REQUIRE_PREDICATE ((GAME_IS ~bgee bg2ee iwdee~) AND (FILE_EXISTS "engine.lua")) @0
+
+	ACTION_TIME "pnp_potions" BEGIN
+		LAUNCH_ACTION_FUNCTION "RUN"
+		STR_VAR
+			"file" = "pnp_potions"
+			"file_loc" = "components"
+			"tra" = "pnp_potions"
+		END
+	END
+
+	/// This program looks for "%file%.tpa" in location "%mod_root%/%file_loc%".
+	/// If it's not found, the install fails. If it's found, it's INCLUDEd and
+	/// the program attempts to run "%file_loc%" as an ACTION_FUNCTION
+	/// with tra file "%tra%.tra".
+
+	/// In my preferred layout, the *only* thing in the component is the preamble
+	/// and this function call (or, occasionally, a more complicated INCLUDE and
+	/// function call. But you don't have to code that way; you can just put TP2
+	/// here if you like.
+
+////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////

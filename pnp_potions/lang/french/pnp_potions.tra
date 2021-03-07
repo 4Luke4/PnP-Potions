@@ -1,0 +1,7 @@
+@0 = "%id_name_string% : Efficacité réduite de moitié"
+@1 = "%id_name_string% : Efficacité accrue de 50%"
+@2 = "%id_name_string% : Les effets dureront indéfiniment (jusqu'à ce qu'ils soient dissous)"
+@3 = "%id_name_string% : Doublement de l'efficacité"
+@4 = "%id_name_string% : La Force et la Dextérité ont été définitivement diminuées de 1"
+@5 = "%id_name_string% : Tous les effets des potions actives ont été supprimés"
+@6 = "%id_name_string% : Il ne se passe rien..."

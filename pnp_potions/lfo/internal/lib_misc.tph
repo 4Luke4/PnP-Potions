@@ -1,0 +1,750 @@
+////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////
+//	DELETE_EFFECT_EX
+//	– Fixed READ_BYTE when reading "abil_type"
+////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////
+
+DEFINE_PATCH_FUNCTION "DELETE_EFFECT_EX"
+BEGIN
+	// set variables and offsets based on the file type
+	SET "new_fx" = 0
+	// Init
+	PATCH_MATCH "%DEST_EXT%" WITH
+		"SPL" BEGIN
+			SET "min_size" = 0x72
+			READ_LONG 0x6a "fx_off" ELSE 0
+			SET "counter_offset" = 0x70
+			SET "abil_length"    = 0x28
+			SET "fx_type"        = 0
+			READ_LONG   0x64 "abil_off" ELSE 0
+			READ_SHORT  0x68 "abil_num" ELSE 0
+		END
+
+		"ITM" BEGIN
+			SET "min_size"       = 0x72
+			READ_LONG   0x6a "fx_off"   ELSE 0
+			SET "counter_offset" = 0x70
+			SET "abil_length"    = 0x38
+			SET "fx_type"        = 0
+			READ_LONG   0x64 "abil_off" ELSE 0
+			READ_SHORT  0x68 "abil_num" ELSE 0
+		END
+
+		"CRE" BEGIN // cre v1.0
+			SET "min_size" = 0x2d4
+			READ_LONG  0x2c4 "fx_off"
+			SET "counter_offset" = 0x2c8
+			SET "abil_off" = 0 // basically prevents the ability effect loop
+			SET "abil_num" = 0
+			SET "abil_length" = 0
+			READ_BYTE 0x33 "fx_type" ELSE 2
+			SET "___#check_globals" = 1
+			SET "___#check_headers" = 0
+			SET "___#header" = "-1" // basically, ignore header index checks
+			SET "___#header_type" = "-1" // basically, ignore header type checks
+		END
+
+		DEFAULT
+			SET "min_size" = "-1" // kill macro as the file type is not recognized
+			PATCH_FAIL "~%DEST_FILE%~: DELETE_EFFECT_EX does not support file type %DEST_EXT%"
+	END
+
+	PATCH_IF (BUFFER_LENGTH >= "%min_size%") BEGIN // sanity check
+		FOR ("index" = (0 - "%___#check_globals%") ; "%index%" < "%abil_num%" ; ++"index") BEGIN // we start at -1 for global effects
+			PATCH_IF ("%index%" < 0) BEGIN // if loop through globals needed
+				SET "abil_fx_idx" = 0  // start with effect 0 since we're in the global loop
+				SET "abil_type" = "-1" // basically, ignore header type checks for global loop
+			END ELSE BEGIN // otherwise normal ability
+				READ_BYTE   ("%abil_off%" +        ("%abil_length%" * "%index%")) "abil_type"
+				SET "counter_offset" = ("%abil_off%" + 0x1e + ("%abil_length%" * "%index%"))
+				WRITE_SHORT ("%abil_off%" + 0x20 + ("%abil_length%" * "%index%")) (THIS + "%new_fx%") // update index with previously deleted effects
+				READ_SHORT  ("%abil_off%" + 0x20 + ("%abil_length%" * "%index%")) "abil_fx_idx"
+			END
+			READ_SHORT "%counter_offset%" "counter" // fx_num on global loop, otherwise abil_fx_num
+			PATCH_IF ((("%abil_type%" == "%___#header_type%") OR ("%abil_type%" < 0) OR ("%___#header_type%" < 0)) AND // only look on the right header types, if specified...
+						(("%___#header%" == "%index%") OR ("%___#header%" < 0)) AND                                  // and only on the right # header, if specified
+						(("%index%" < 0) OR ("%___#check_headers%"))) BEGIN                                 // if ("%___#check_headers%" == 0), only re-index
+				SET "local_multi" = "%___#multi_match%"
+				FOR ("index2" = 0 ; "%index2%" < "%counter%" ; ++"index2") BEGIN
+					// read the variables from the current effect
+					READ_ASCII ("%fx_off%" + 0x14 + (0x14 * "%fx_type%") + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%")))) "o_resource"
+					// match ALL these variables, if specified
+					PATCH_IF ((("%___#match_opcode%"        = SHORT_AT ("%fx_off%"       + (0x08 * "%fx_type%") + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%"))))) OR ("%___#match_opcode%" < 0))        AND
+										(("%___#match_target%"        = BYTE_AT ("%fx_off%" + 0x02 + (0x0a * "%fx_type%") + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%"))))) OR ("%___#match_target%" < 0))        AND
+										(("%___#match_power%"         = BYTE_AT ("%fx_off%" + 0x03 + (0x0d * "%fx_type%") + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%"))))) OR ("%___#match_power%" < 0))         AND
+										(("%___#match_parameter1%"    = LONG_AT ("%fx_off%" + 0x04 + (0x10 * "%fx_type%") + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%"))))) OR ("%___#match_parameter1%" < 0))    AND
+										(("%___#match_parameter2%"    = LONG_AT ("%fx_off%" + 0x08 + (0x10 * "%fx_type%") + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%"))))) OR ("%___#match_parameter2%" < 0))    AND
+										(("%___#match_timing%"        = BYTE_AT ("%fx_off%" + 0x0c + (0x10 * "%fx_type%") + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%"))))) OR ("%___#match_timing%" < 0))        AND
+										(("%___#match_resist_dispel%" = BYTE_AT ("%fx_off%" + 0x0d + (0x47 * "%fx_type%") + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%"))))) OR ("%___#match_resist_dispel%" < 0)) AND
+										(("%___#match_duration%"      = LONG_AT ("%fx_off%" + 0x0e + (0x12 * "%fx_type%") + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%"))))) OR ("%___#match_duration%" < 0))      AND
+										(("%___#match_duration_high%" < LONG_AT ("%fx_off%" + 0x0e + (0x12 * "%fx_type%") + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%"))))) OR ("%___#match_duration_high%" < 0)) AND
+										(("%___#match_probability1%"  = BYTE_AT ("%fx_off%" + 0x12 + (0x12 * "%fx_type%") + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%"))))) OR ("%___#match_probability1%" < 0))  AND
+										(("%___#match_probability2%"  = BYTE_AT ("%fx_off%" + 0x13 + (0x13 * "%fx_type%") + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%"))))) OR ("%___#match_probability2%" < 0))  AND
+										(("%___#match_dicenumber%"    = LONG_AT ("%fx_off%" + 0x1c + (0x14 * "%fx_type%") + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%"))))) OR ("%___#match_dicenumber%" < 0))    AND
+										(("%___#match_dicesize%"      = LONG_AT ("%fx_off%" + 0x20 + (0x14 * "%fx_type%") + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%"))))) OR ("%___#match_dicesize%" < 0))      AND
+										(("%___#match_savetype%"   = LONG_AT ("%fx_off%" + 0x24 + (0x14 * "%fx_type%") + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%")))))    OR ("%___#match_savetype%" < 0))      AND
+										(("%___#match_savebonus%"     = LONG_AT ("%fx_off%" + 0x28 + (0x14 * "%fx_type%") + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%"))))) OR ("%___#match_savebonus%" < "-10")) AND
+										(("%___#match_special%"       = LONG_AT ("%fx_off%" + 0x2c + (0x14 * "%fx_type%") + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%"))))) OR ("%___#match_special%" < 0))       AND
+										(("%___#match_resource%" STRING_EQUAL_CASE "%o_resource%") OR ("%___#match_resource%" STRING_EQUAL_CASE "SAME"))) BEGIN
+						// now that we've got a match, delete it:
+						DELETE_BYTES ("%fx_off%" + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%")))) (0x30 + (0xd8 * "%fx_type%"))
+						// update the tracking vars
+						SET "new_fx" -= 1
+						SET "counter" -= 1
+						SET "index2" -= 1
+						PATCH_IF ("%local_multi%" < 2) BEGIN  // kill loop if we only want one match
+							SET "index2" = "%counter%"
+						END ELSE BEGIN // otherwise bump vars and keep going
+							SET "local_multi" -= 1
+						END
+
+					END // end patch_if for a matched effect
+				END // end of the for loop through effects
+			END // end patch_if for matched/specified headers
+			WRITE_SHORT "%counter_offset%" "%counter%" // fx_num on global loop, otherwise abil_fx_num
+		END // end loop through effects on ability
+	END // end ability loop
+	// now adjust offsets for creature files
+	PATCH_IF (("%DEST_EXT%" STRING_EQUAL_CASE "CRE") AND ("%new_fx%" != 0)) BEGIN // fix offsets for cre v1.0 files if #fx changed
+		SET "inserted" = ((0x30 + (0xd8 * "%fx_type%")) * "%new_fx%")
+		PATCH_FOR_EACH "offset" IN "0x2a0" "0x2a8" "0x2b0" "0x2b8" "0x2bc" BEGIN
+			READ_LONG "%offset%" "off"
+			PATCH_IF ("%fx_off%" < "%off%") BEGIN
+				WRITE_LONG "%offset%" ("%off%" + "%inserted%")
+			END
+		END
+	END
+	// Display feedback message (if specified)
+	PATCH_IF ("%___#verbose%") BEGIN
+		READ_LONG 0x0c "strref"
+		PATCH_IF (("%strref%" > 0) AND ("%strref%" < 200000)) BEGIN
+			READ_STRREF 0x0c "name"
+		END ELSE BEGIN
+			READ_STRREF 0x08 "name"
+		END
+		PATCH_PRINT "%TAB%DELETE_EFFECT_EX, ~%DEST_FILE%~ // %name%, %new_fx% effect(s) deleted"
+		PATCH_SILENT
+	END
+END
+
+////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////
+//	CLONE_EFFECT_EX
+//	– Fixed READ_BYTE when reading "abil_type"
+//	– "duration", "parameter1", "special" can now take numerical expressions
+////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////
+
+DEFINE_PATCH_FUNCTION "CLONE_EFFECT_EX"
+BEGIN
+	// set variables and offsets based on the file type
+	SET new_fx = 0
+	// Init
+	PATCH_MATCH "%DEST_EXT%" WITH
+		"SPL" BEGIN
+			SET "min_size"       = 0x72
+			READ_LONG   0x6a "fx_off"   ELSE 0
+			SET "counter_offset" = 0x70
+			SET "abil_length"    = 0x28
+			SET "fx_type"        = 0
+			READ_LONG   0x64 "abil_off" ELSE 0
+			READ_SHORT  0x68 "abil_num" ELSE 0
+		END
+
+		"ITM" BEGIN
+			SET "min_size"       = 0x72
+			READ_LONG   0x6a "fx_off"   ELSE 0
+			SET "counter_offset" = 0x70
+			SET "abil_length"    = 0x38
+			SET "fx_type"        = 0
+			READ_LONG   0x64 "abil_off" ELSE 0
+			READ_SHORT  0x68 "abil_num" ELSE 0
+		END
+
+		"CRE" BEGIN
+			SET "min_size" = 0x2d4
+			READ_LONG  0x2c4 "fx_off"
+			SET "counter_offset" = 0x2c8
+			SET "abil_off" = 0 // basically prevents the ability effect loop
+			SET "abil_num" = 0
+			SET "abil_length" = 0
+			READ_BYTE 0x33 "fx_type" ELSE 2
+			SET "___#check_globals" = 1
+			SET "___#check_headers" = 0
+			SET "___#header" = "-1" // basically, ignore header index checks
+			SET "___#header_type" = "-1" // basically, ignore header type checks
+		END
+
+		DEFAULT
+			SET "min_size" = "-1" // kill macro as the file type is not recognized
+			PATCH_FAIL "~%DEST_FILE%~: CLONE_EFFECT_EX does not support file type ~%DEST_EXT%~"
+	END
+
+	PATCH_IF (BUFFER_LENGTH >= "%min_size%") BEGIN // sanity check
+		FOR ("index" = (0 - "%___#check_globals%") ; "%index%" < "%abil_num%" ; ++"index") BEGIN // we start at -1 for global effects
+			PATCH_IF ("%index%" < 0) BEGIN // if loop through globals needed
+				SET "abil_fx_idx" = 0  // start with effect 0 since we're in the global loop
+				SET "abil_type" = "-1" // basically, ignore header type checks for global loop
+			END ELSE BEGIN // otherwise normal ability
+				READ_BYTE   ("%abil_off%" +        ("%abil_length%" * "%index%")) "abil_type"
+				SET "counter_offset" = ("%abil_off%" + 0x1e + ("%abil_length%" * "%index%"))
+				WRITE_SHORT ("%abil_off%" + 0x20 + ("%abil_length%" * "%index%")) (THIS + "%new_fx%") // update index with previously added effects
+				READ_SHORT  ("%abil_off%" + 0x20 + ("%abil_length%" * "%index%")) "abil_fx_idx"
+			END
+			READ_SHORT "%counter_offset%" "counter" // fx_num on global loop, otherwise abil_fx_num
+			PATCH_IF ((("%abil_type%" == "%___#header_type%") OR ("%abil_type%" < 0) OR ("%___#header_type%" < 0)) AND // only look on the right header types, if specified...
+								(("%___#header%" == "%index%") OR ("%___#header%" < 0)) AND                                  // and only on the right # header, if specified...
+								(("%index%" < 0) OR ("%___#check_headers%"))) BEGIN                                 // if check headers = 0, only re-index
+				SET "last" = 0                              // and only on the right # header, if specified
+				SET "local_multi" = "%___#multi_match%"
+				FOR ("index2" = 0 ; "%index2%" < ("%counter%" - "%last%") ; ++"index2") BEGIN
+					// read the variables from the current effect
+					READ_ASCII ("%fx_off%" + 0x14 + (0x14 * "%fx_type%") + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%")))) "o_resource"
+					// match ALL these variables, if specified
+					PATCH_IF ((("%___#match_opcode%"        = SHORT_AT ("%fx_off%"       + (0x08 * "%fx_type%") + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%"))))) OR ("%___#match_opcode%" < 0))        AND
+										(("%___#match_target%"        = BYTE_AT ("%fx_off%" + 0x02 + (0x0a * "%fx_type%") + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%"))))) OR ("%___#match_target%" < 0))        AND
+										(("%___#match_power%"         = BYTE_AT ("%fx_off%" + 0x03 + (0x0d * "%fx_type%") + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%"))))) OR ("%___#match_power%" < 0))         AND
+										(("%___#match_parameter1%"    = LONG_AT ("%fx_off%" + 0x04 + (0x10 * "%fx_type%") + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%"))))) OR ("%___#match_parameter1%" < 0))    AND
+										(("%___#match_parameter2%"    = LONG_AT ("%fx_off%" + 0x08 + (0x10 * "%fx_type%") + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%"))))) OR ("%___#match_parameter2%" < 0))    AND
+										(("%___#match_timing%"        = BYTE_AT ("%fx_off%" + 0x0c + (0x10 * "%fx_type%") + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%"))))) OR ("%___#match_timing%" < 0))        AND
+										(("%___#match_resist_dispel%" = BYTE_AT ("%fx_off%" + 0x0d + (0x47 * "%fx_type%") + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%"))))) OR ("%___#match_resist_dispel%" < 0)) AND
+										(("%___#match_duration%"      = LONG_AT ("%fx_off%" + 0x0e + (0x12 * "%fx_type%") + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%"))))) OR ("%___#match_duration%" < 0))      AND
+										(("%___#match_duration_high%" < LONG_AT ("%fx_off%" + 0x0e + (0x12 * "%fx_type%") + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%"))))) OR ("%___#match_duration_high%" < 0))      AND
+										(("%___#match_probability1%"  = BYTE_AT ("%fx_off%" + 0x12 + (0x12 * "%fx_type%") + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%"))))) OR ("%___#match_probability1%" < 0))  AND
+										(("%___#match_probability2%"  = BYTE_AT ("%fx_off%" + 0x13 + (0x13 * "%fx_type%") + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%"))))) OR ("%___#match_probability2%" < 0))  AND
+										(("%___#match_dicenumber%"    = LONG_AT ("%fx_off%" + 0x1c + (0x14 * "%fx_type%") + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%"))))) OR ("%___#match_dicenumber%" < 0))    AND
+										(("%___#match_dicesize%"      = LONG_AT ("%fx_off%" + 0x20 + (0x14 * "%fx_type%") + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%"))))) OR ("%___#match_dicesize%" < 0))      AND
+										(("%___#match_savetype%"   = LONG_AT ("%fx_off%" + 0x24 + (0x14 * "%fx_type%") + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%")))))    OR ("%___#match_savetype%" < 0))      AND
+										(("%___#match_savebonus%"     = LONG_AT ("%fx_off%" + 0x28 + (0x14 * "%fx_type%") + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%"))))) OR ("%___#match_savebonus%" < "-10")) AND
+										(("%___#match_special%"       = LONG_AT ("%fx_off%" + 0x2c + (0x14 * "%fx_type%") + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%"))))) OR ("%___#match_special%" < 0))       AND
+										(("%___#match_resource%" STRING_EQUAL_CASE "%o_resource%") OR ("%___#match_resource%" STRING_EQUAL_CASE "SAME"))) BEGIN
+						// now that we've got a match, read-and-clone it:
+						READ_ASCII ("%fx_off%" + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%")))) "clone" (0x30 + (0xd8 * "%fx_type%"))
+						PATCH_MATCH "%___#insert%" WITH
+							"below" BEGIN
+								SET "base" = ("%fx_off%" + (("%abil_fx_idx%" + "%index2%" + 1) * (0x30 + (0xd8 * "%fx_type%"))))
+							END
+							"first" BEGIN
+								SET "base" = ("%fx_off%" + ("%abil_fx_idx%" * (0x30 + (0xd8 * "%fx_type%"))))
+							END
+							"last" BEGIN
+								SET "base" = ("%fx_off%" + (("%abil_fx_idx%" + "%counter%") * (0x30 + (0xd8 * "%fx_type%"))))
+							END
+							"above" BEGIN
+								SET "base" = ("%fx_off%" + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%"))))
+							END
+							DEFAULT
+								PATCH_FAIL "~%DEST_FILE%~, CLONE_EFFECT_EX: invalid value for ~insert~ (~%___#insert%~)"
+						END
+						INSERT_BYTES "%base%" (0x30 + (0xd8 * "%fx_type%"))
+						WRITE_ASCIIE "%base%" "%clone%"
+						// overwrite the cloned effect with the new variables, if specified
+						PATCH_MATCH "%___#opcode%" WITH
+							"-1" BEGIN END
+							"[0-9]+" WHEN (("%___#opcode%" >= 0) AND ("%___#opcode%" <= 367)) BEGIN
+								WRITE_SHORT ("%base%" + 0x00 + (0x08 * "%fx_type%")) "%___#opcode%"
+							END
+							DEFAULT
+								PATCH_FAIL "~%DEST_FILE%~, CLONE_EFFECT_EX: ~opcode~ must be an integer belonging to the interval [0,367] (you provided ~%___#opcode%~)"
+						END
+
+						//PATCH_IF (___#target >= 0)        BEGIN WRITE_BYTE  (base + 0x02 + (0x0a * fx_type)) ___#target        END
+						PATCH_MATCH "%___#target%" WITH
+							"-1" BEGIN END
+							"[0-9]" BEGIN
+								WRITE_BYTE ("%base%" + 0x02 + (0x0a * "%fx_type%")) "%___#target%"
+							END
+							DEFAULT
+								PATCH_FAIL "~%DEST_FILE%~, CLONE_EFFECT_EX: ~target~ must be an integer belonging to the interval [0,9] (you provided ~%___#target%~)"
+						END
+
+						PATCH_MATCH "%___#power%" WITH
+							"-1" BEGIN END
+							"[0-9]+" BEGIN
+								WRITE_BYTE ("%base%" + 0x03 + (0x0d * "%fx_type%")) "%___#power%"
+							END
+							DEFAULT
+								PATCH_FAIL "~%DEST_FILE%~, CLONE_EFFECT_EX: ~power~ must be an integer greater or equal than 0 (you provided ~%___#power%~)"
+						END
+
+						//PATCH_IF (parameter1 >= 0)    BEGIN WRITE_LONG  (base + 0x04 + (0x10 * fx_type)) parameter1    END
+						PATCH_IF ("%___#parameter1%" STRING_COMPARE_CASE "SAME") BEGIN
+							LPF "EVALUATE_EXPRESSION"
+							INT_VAR
+								"effect_number" = SHORT_AT ("%base%" + (0x08 * "%fx_type%"))
+								"current_value" = SLONG_AT ("%base%" + 0x04 + (0x10 * "%fx_type%"))
+							STR_VAR
+								"expression" = "%___#parameter1%"
+							RET
+								"___#parameter1" = "value"
+							END
+							WRITE_LONG ("%base%" + 0x04 + (0x10 * "%fx_type%")) "%___#parameter1%"
+						END
+
+						//PATCH_IF (___#parameter2 >= 0)    BEGIN WRITE_LONG  (base + 0x08 + (0x10 * fx_type)) ___#parameter2    END
+						PATCH_IF ("%___#parameter2%" STRING_COMPARE_CASE "SAME") BEGIN
+							LPF "EVALUATE_EXPRESSION"
+							INT_VAR
+								"effect_number" = SHORT_AT ("%base%" + (0x08 * "%fx_type%"))
+							STR_VAR
+								"expression" = "%___#parameter2%"
+							RET
+								"___#parameter2" = "value"
+							END
+							WRITE_LONG ("%base%" + 0x08 + (0x10 * "%fx_type%")) "%___#parameter2%"
+						END
+
+						//PATCH_IF (___#timing >= 0)        BEGIN WRITE_BYTE  (base + 0x0c + (0x10 * fx_type)) ___#timing        END
+						PATCH_MATCH "%___#timing%" WITH
+							"-1" BEGIN END
+							"[0-9]" "10" "4096" BEGIN
+								WRITE_BYTE ("%base%" + 0x0c + (0x10 * "%fx_type%")) "%___#timing%"
+							END
+							DEFAULT
+								PATCH_FAIL "~%DEST_FILE%~, CLONE_EFFECT_EX: ~timing~ must be an integer belonging to the interval [0,9], or 10, or 4096 (you provided ~%___#timing%~)"
+						END
+
+						//PATCH_IF (___#resist_dispel >= 0) BEGIN WRITE_BYTE  (base + 0x0d + (0x47 * fx_type)) ___#resist_dispel END
+
+						PATCH_MATCH "%___#resist_dispel%" WITH
+							"-1" BEGIN END
+							"[0-3]" BEGIN
+								WRITE_BYTE ("%base%" + 0x0d + (0x47 * "%fx_type%")) "%___#resist_dispel%"
+							END
+							DEFAULT
+								PATCH_FAIL "~%DEST_FILE%~, CLONE_EFFECT_EX: ~resist_dispel~ must be an integer belonging to the interval [0,3] (you provided ~%___#resist_dispel%~)"
+						END
+
+						//PATCH_IF (duration >= 0)      BEGIN WRITE_LONG  (base + 0x0e + (0x12 * fx_type)) duration      END
+						PATCH_IF ("%___#duration%" STRING_COMPARE_CASE "SAME") BEGIN
+							LPF "EVALUATE_EXPRESSION"
+							INT_VAR
+								"current_value" = LONG_AT ("%base%" + 0x0e + (0x12 * "%fx_type%"))
+							STR_VAR
+								"expression" = "%___#duration%"
+							RET
+								"___#duration" = "value"
+							END
+							WRITE_LONG ("%base%" + 0x0e + (0x12 * "%fx_type%")) "%___#duration%"
+						END
+
+						PATCH_MATCH "%___#probability1%" WITH
+							"-1" BEGIN END
+							"[0-9]+" WHEN ("%___#probability1%" >= 0 AND "%___#probability1%" <= 100) BEGIN
+								WRITE_BYTE ("%base%" + 0x12 + (0x12 * "%fx_type%")) "%___#probability1%"
+							END
+							DEFAULT
+								PATCH_FAIL "~%DEST_FILE%~, CLONE_EFFECT_EX: ~probability1~ must be an integer belonging to the interval [0,100] (you provided ~%___#probability1%~)"
+						END
+
+						PATCH_MATCH "%___#probability2%" WITH
+							"-1" BEGIN END
+							"[0-9]+" WHEN ("%___#probability2%" >= 0 AND "%___#probability2%" <= 100) BEGIN
+								WRITE_BYTE ("%base%" + 0x13 + (0x13 * "%fx_type%")) "%___#probability2%"
+							END
+							DEFAULT
+								PATCH_FAIL "~%DEST_FILE%~, CLONE_EFFECT_EX: ~probability2~ must be an integer belonging to the interval [0,100] (you provided ~%___#probability2%~)"
+						END
+
+						PATCH_MATCH "%___#dicenumber%" WITH
+							"-1" BEGIN END
+							"[0-9]+" BEGIN
+								WRITE_LONG ("%base%" + 0x1c + (0x14 * "%fx_type%")) "%___#dicenumber%"
+							END
+							DEFAULT
+								PATCH_FAIL "~%DEST_FILE%~, CLONE_EFFECT_EX: ~dicenumber~ must be an integer belonging to the interval [0,4294967295] (you provided ~%___#dicenumber%~)"
+						END
+
+						PATCH_MATCH "%___#dicesize%" WITH
+							"-1" BEGIN END
+							"[0-9]+" BEGIN
+								WRITE_LONG ("%base%" + 0x20 + (0x14 * "%fx_type%")) "%___#dicesize%"
+							END
+							DEFAULT
+								PATCH_FAIL "~%DEST_FILE%~, CLONE_EFFECT_EX: ~dicesize~ must be an integer belonging to the interval [0,4294967295] (you provided ~%___#dicesize%~)"
+						END
+
+						//PATCH_IF (___#savetype >= 0)   BEGIN WRITE_LONG  (base + 0x24 + (0x14 * fx_type)) ___#savetype   END
+						PATCH_IF ("%___#savetype%" STRING_COMPARE_CASE "SAME") BEGIN
+							LPF "EVALUATE_EFFECT_SAVETYPE"
+							INT_VAR
+								"current_value" = LONG_AT ("%base%" + 0x24 + (0x14 * "%fx_type%"))
+							STR_VAR
+								"input" = "%___#savetype%"
+							RET
+								"___#savetype" = "output"
+							END
+							WRITE_LONG ("%base%" + 0x24 + (0x14 * "%fx_type%")) "%___#savetype%"
+						END
+
+						PATCH_MATCH "%___#savebonus%" WITH
+							"-11" BEGIN END
+							"-?[0-9]+" WHEN ("%___#savebonus%" >= "-10") BEGIN
+								WRITE_LONG ("%base%" + 0x28 + (0x14 * "%fx_type%")) "%___#savebonus%"
+							END
+							DEFAULT
+								PATCH_FAIL "~%DEST_FILE%~, CLONE_EFFECT_EX: ~savebonus~ must be an integer belonging to the interval [-2147483648,2147483647] (you provided ~%___#savebonus%~)"
+						END
+
+						//PATCH_IF (special >= 0)       BEGIN WRITE_LONG  (base + 0x2c + (0x14 * fx_type)) special       END
+						PATCH_IF ("%___#special%" STRING_COMPARE_CASE "SAME") BEGIN
+							LPF "EVALUATE_EXPRESSION"
+							INT_VAR
+								"effect_number" = SHORT_AT ("%base%" + (0x08 * "%fx_type%"))
+								"current_value" = SLONG_AT ("%base%" + 0x2c + (0x14 * "%fx_type%")) // Mainly in case it's a bit field (see op#232, p2=15, spec=BIT31)
+							STR_VAR
+								"expression" = "%___#special%"
+							RET
+								"___#special" = "value"
+							END
+							WRITE_LONG ("%base%" + 0x2c + (0x14 * "%fx_type%")) "%___#special%"
+						END
+
+						PATCH_IF ("%___#resource%" STRING_COMPARE_CASE "SAME") BEGIN
+							WRITE_ASCIIE ("%base%" + 0x14 + (0x14 * "%fx_type%")) "%___#resource%" #8
+						END
+						// update the tracking vars
+						SET "new_fx" += 1
+						SET "counter" += 1
+						PATCH_IF ("%local_multi%" < 2) BEGIN  // kill loop if we only want one match
+							SET "index2" = "%counter%"
+						END ELSE BEGIN // otherwise bump vars and keep going
+							SET "%local_multi%" -= 1
+							PATCH_IF ("%___#insert%" STRING_COMPARE_CASE "last" = 0) BEGIN
+								SET "last" += 1
+							END ELSE BEGIN
+								SET "index2" += 1
+							END
+						END
+					END // end patch_if for a matched effect
+				END // end of the for loop through effects
+			END // end patch_if for matched/specified headers
+			WRITE_SHORT "%counter_offset%" "%counter%" // fx_num on global loop, otherwise abil_fx_num
+		END // end loop through effects on ability
+	END // end ability loop
+	// now adjust offsets for creature files
+	PATCH_IF (("%DEST_EXT%" STRING_EQUAL_CASE "CRE") AND ("%new_fx%" > 0)) BEGIN // fix offsets for cre files if fx inserted
+		SET "inserted" = ((0x30 + (0xd8 * "%fx_type%")) * "%new_fx%")
+		PATCH_FOR_EACH "offset" IN "0x2a0" "0x2a8" "0x2b0" "0x2b8" "0x2bc" BEGIN
+			READ_LONG "%offset%" "off"
+			PATCH_IF ("%fx_off%" < "%off%") BEGIN
+				WRITE_LONG "%offset%" ("%off%" + "%inserted%")
+			END
+		END
+	END
+	// Display feedback message (if specified)
+	PATCH_IF ("%new_fx%" == 0 && !"%___#silent%") BEGIN
+		PATCH_WARN "%TAB%CLONE_EFFECT_EX: no effects added to ~%DEST_FILE%~"
+	END ELSE PATCH_IF ("%___#verbose%" && !"%___#silent%") BEGIN
+		READ_LONG 0x0c "strref"
+		PATCH_IF (("%strref%" > 0) AND ("%strref%" < 200000)) BEGIN
+			READ_STRREF 0x0c "name"
+		END ELSE BEGIN
+			READ_STRREF 0x08 "name"
+		END
+		PATCH_PRINT "%TAB%CLONE_EFFECT_EX, ~%DEST_FILE%~ // %name%, %new_fx% effect(s) added"
+		PATCH_SILENT
+	END
+END
+
+////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////
+//	ALTER_EFFECT_EX
+//	– Fixed READ_BYTE when reading "abil_type"
+//	– "duration", "parameter1", "parameter2", "special" can now take numerical expressions
+////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////
+
+DEFINE_PATCH_FUNCTION "ALTER_EFFECT_EX"
+BEGIN
+	// set variables and offsets based on the file type
+	SET "alter" = 0
+	// Init
+	PATCH_MATCH "%DEST_EXT%" WITH
+		"SPL" BEGIN
+			SET "min_size"       = 0x72
+			READ_LONG   0x6a "fx_off"   ELSE 0
+			SET "counter_offset" = 0x70
+			SET "abil_length"    = 0x28
+			SET "fx_type"        = 0
+			PATCH_IF ("%___#check_headers%" == 0) BEGIN
+				SET "abil_num" = 0
+			END ELSE BEGIN
+				READ_LONG   0x64 "abil_off" ELSE 0
+				READ_SHORT  0x68 "abil_num" ELSE 0
+			END
+		END
+
+		"ITM" BEGIN
+			SET "min_size"       = 0x72
+			READ_LONG   0x6a "fx_off"   ELSE 0
+			SET "counter_offset" = 0x70
+			SET "abil_length"    = 0x38
+			SET "fx_type"        = 0
+			PATCH_IF ("%___#check_headers%" == 0) BEGIN
+				SET "abil_num" = 0
+			END ELSE BEGIN
+				READ_LONG   0x64 "abil_off" ELSE 0
+				READ_SHORT  0x68 "abil_num" ELSE 0
+			END
+		END
+
+		"CRE" BEGIN
+			SET "min_size" = 0x2d4
+			READ_LONG  0x2c4 "fx_off" ELSE 0
+			SET "counter_offset" = 0x2c8
+			SET "abil_off" = 0 // basically prevents the ability effect loop
+			SET "abil_num" = 0
+			SET "abil_length" = 0
+			READ_BYTE 0x33 "fx_type" ELSE 2
+			SET "___#check_globals" = 1
+			SET "___#check_headers" = 0
+			SET "___#header" = "-1" // basically, ignore header index checks
+			SET "___#header_type" = "-1" // basically, ignore header type checks
+		END
+
+		DEFAULT
+			SET "min_size" = "-1" // kill macro as the file type is not recognized
+			PATCH_FAIL "ERROR: ALTER_EFFECT_EX does not support file type ~%DEST_EXT%~"
+	END
+
+	PATCH_IF (BUFFER_LENGTH >= "%min_size%") BEGIN // sanity check
+		FOR ("index" = (0 - "%___#check_globals%") ; "%index%" < "%abil_num%" ; ++"index") BEGIN // we start at -1 for global effects
+			PATCH_IF ("%index%" < 0) BEGIN // if loop through globals needed
+				SET "abil_fx_idx" = 0  // start with effect 0 since we're in the global loop
+				SET "abil_type" = "-1" // basically, ignore header type checks for global loop
+			END ELSE BEGIN // otherwise normal ability
+				READ_BYTE  ("%abil_off%" +        ("%abil_length%" * "%index%")) "abil_type"
+				SET "counter_offset" = ("%abil_off%" + 0x1e + ("%abil_length%" * "%index%"))
+				READ_SHORT  ("%abil_off%" + 0x20 + ("%abil_length%" * "%index%")) "abil_fx_idx"
+			END
+			READ_SHORT "%counter_offset%" "counter" // fx_num on global loop, otherwise abil_fx_num
+			PATCH_IF ((("%abil_type%" == "%___#header_type%") OR ("%abil_type%" < 0) OR ("%___#header_type%" < 0)) AND // only look on the right header types, if specified...
+						(("%___#header%" == "%index%") OR ("%___#header%" < 0))) BEGIN                               // and only on the right # header, if specified
+				SET "local_multi" = "%___#multi_match%"
+				FOR ("index2" = 0 ; "%index2%" < "%counter%" ; ++"index2") BEGIN
+					// read the variables from the current effect
+					READ_SHORT ("%fx_off%" + 0x00 + (0x08 * "%fx_type%") + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%")))) "o_opcode"
+					READ_ASCII ("%fx_off%" + 0x14 + (0x14 * "%fx_type%") + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%")))) "o_resource"
+					// match ALL these variables, if specified
+					PATCH_IF ((("%___#match_opcode%"        = SHORT_AT ("%fx_off%"       + (0x08 * "%fx_type%") + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%"))))) OR ("%___#match_opcode%" < 0))        AND
+										("%o_opcode%" STRING_MATCHES_REGEXP "^%___#match_opcode_exclude%$") AND
+										(("%___#match_target%"        = BYTE_AT ("%fx_off%" + 0x02 + (0x0a * "%fx_type%") + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%"))))) OR ("%___#match_target%" < 0))        AND
+										(("%___#match_power%"         = BYTE_AT ("%fx_off%" + 0x03 + (0x0d * "%fx_type%") + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%"))))) OR ("%___#match_power%" < 0))         AND
+										(("%___#match_parameter1%"    = LONG_AT ("%fx_off%" + 0x04 + (0x10 * "%fx_type%") + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%"))))) OR ("%___#match_parameter1%" < 0))    AND
+										(("%___#match_parameter2%"    = LONG_AT ("%fx_off%" + 0x08 + (0x10 * "%fx_type%") + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%"))))) OR ("%___#match_parameter2%" < 0))    AND
+										(("%___#match_timing%"        = BYTE_AT ("%fx_off%" + 0x0c + (0x10 * "%fx_type%") + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%"))))) OR ("%___#match_timing%" < 0))        AND
+										(("%___#match_resist_dispel%" = BYTE_AT ("%fx_off%" + 0x0d + (0x47 * "%fx_type%") + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%"))))) OR ("%___#match_resist_dispel%" < 0)) AND
+										(("%___#match_duration%"      = LONG_AT ("%fx_off%" + 0x0e + (0x12 * "%fx_type%") + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%"))))) OR ("%___#match_duration%" < 0))      AND
+										(("%___#match_duration_high%" < LONG_AT ("%fx_off%" + 0x0e + (0x12 * "%fx_type%") + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%"))))) OR ("%___#match_duration_high%" < 0))      AND
+										(("%___#match_probability1%"  = BYTE_AT ("%fx_off%" + 0x12 + (0x12 * "%fx_type%") + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%"))))) OR ("%___#match_probability1%" < 0))  AND
+										(("%___#match_probability2%"  = BYTE_AT ("%fx_off%" + 0x13 + (0x13 * "%fx_type%") + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%"))))) OR ("%___#match_probability2%" < 0))  AND
+										(("%___#match_dicenumber%"    = LONG_AT ("%fx_off%" + 0x1c + (0x14 * "%fx_type%") + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%"))))) OR ("%___#match_dicenumber%" < 0))    AND
+										(("%___#match_dicenumber_high%" < LONG_AT ("%fx_off%" + 0x1c + (0x14 * "%fx_type%") + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%"))))) OR ("%___#match_dicenumber_high%" < 0))    AND
+										(("%___#match_dicesize%"      = LONG_AT ("%fx_off%" + 0x20 + (0x14 * "%fx_type%") + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%"))))) OR ("%___#match_dicesize%" < 0))      AND
+										(("%___#match_savetype%"   = LONG_AT ("%fx_off%" + 0x24 + (0x14 * "%fx_type%") + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%")))))    OR ("%___#match_savetype%" < 0))      AND
+										(("%___#match_savebonus%"     = LONG_AT ("%fx_off%" + 0x28 + (0x14 * "%fx_type%") + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%"))))) OR ("%___#match_savebonus%" < "-10")) AND
+										(("%___#match_special%"       = LONG_AT ("%fx_off%" + 0x2c + (0x14 * "%fx_type%") + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%"))))) OR ("%___#match_special%" < 0))       AND
+										(("%___#match_resource%" STRING_EQUAL_CASE "%o_resource%") OR ("%___#match_resource%" STRING_EQUAL_CASE "SAME"))) BEGIN
+						// lazily re-use code
+						SET "base" = ("%fx_off%" + (("%abil_fx_idx%" + "%index2%") * (0x30 + (0xd8 * "%fx_type%"))))
+						// overwrite the cloned effect with the new variables, if specified
+						PATCH_MATCH "%___#opcode%" WITH
+							"-1" BEGIN END
+							"[0-9]+" WHEN (("%___#opcode%" >= 0) AND ("%___#opcode%" <= 367)) BEGIN
+								WRITE_SHORT ("%base%" + 0x00 + (0x08 * "%fx_type%")) "%___#opcode%"
+							END
+							DEFAULT
+								PATCH_FAIL "~%DEST_FILE%~, ALTER_EFFECT_EX: ~opcode~ must be an integer belonging to the interval [0,367] (you provided ~%___#opcode%~)"
+						END
+
+						//PATCH_IF (___#target >= 0)        BEGIN WRITE_BYTE  (base + 0x02 + (0x0a * fx_type)) ___#target        END
+						PATCH_MATCH "%___#target%" WITH
+							"-1" BEGIN END
+							"[0-9]" BEGIN
+								WRITE_BYTE ("%base%" + 0x02 + (0x0a * "%fx_type%")) "%___#target%"
+							END
+							DEFAULT
+								PATCH_FAIL "~%DEST_FILE%~, ALTER_EFFECT_EX: ~target~ must be an integer belonging to the interval [0,9] (you provided ~%___#target%~)"
+						END
+
+						PATCH_MATCH "%___#power%" WITH
+							"-1" BEGIN END
+							"[0-9]+" BEGIN
+								WRITE_BYTE ("%base%" + 0x03 + (0x0d * "%fx_type%")) "%___#power%"
+							END
+							DEFAULT
+								PATCH_FAIL "~%DEST_FILE%~, ALTER_EFFECT_EX: ~power~ must be an integer greater or equal than 0 (you provided ~%___#power%~)"
+						END
+
+						//PATCH_IF (___#parameter1 >= 0)    BEGIN WRITE_LONG  (base + 0x04 + (0x10 * fx_type)) ___#parameter1    END
+						PATCH_IF ("%___#parameter1%" STRING_COMPARE_CASE "SAME") BEGIN
+							LPF "EVALUATE_EXPRESSION"
+							INT_VAR
+								"effect_number" = SHORT_AT ("%base%" + (0x08 * "%fx_type%"))
+								"current_value" = SLONG_AT ("%base%" + 0x04 + (0x10 * "%fx_type%"))
+							STR_VAR
+								"expression" = "%___#parameter1%"
+							RET
+								"___#parameter1" = "value"
+							END
+							WRITE_LONG ("%base%" + 0x04 + (0x10 * "%fx_type%")) "%___#parameter1%"
+						END
+
+						//PATCH_IF (___#parameter2 >= 0)    BEGIN WRITE_LONG  (base + 0x08 + (0x10 * fx_type)) ___#parameter2    END
+						PATCH_IF ("%___#parameter2%" STRING_COMPARE_CASE "SAME") BEGIN
+							LPF "EVALUATE_EXPRESSION"
+							INT_VAR
+								"effect_number" = SHORT_AT ("%base%" + (0x08 * "%fx_type%"))
+							STR_VAR
+								"expression" = "%___#parameter2%"
+							RET
+								"___#parameter2" = "value"
+							END
+							WRITE_LONG ("%base%" + 0x08 + (0x10 * "%fx_type%")) "%___#parameter2%"
+						END
+
+						//PATCH_IF (___#timing >= 0)        BEGIN WRITE_BYTE  (base + 0x0c + (0x10 * fx_type)) ___#timing        END
+						PATCH_MATCH "%___#timing%" WITH
+							"-1" BEGIN END
+							"[0-9]" "10" "4096" BEGIN
+								WRITE_BYTE ("%base%" + 0x0c + (0x10 * "%fx_type%")) "%___#timing%"
+							END
+							DEFAULT
+								PATCH_FAIL "~%DEST_FILE%~, ALTER_EFFECT_EX: ~timing~ must be an integer belonging to the interval [0,10] or 4096 (you provided ~%___#timing%~)"
+						END
+
+						//PATCH_IF (___#resist_dispel >= 0) BEGIN WRITE_BYTE  (base + 0x0d + (0x47 * fx_type)) ___#resist_dispel END
+						PATCH_MATCH "%___#resist_dispel%" WITH
+							"-1" BEGIN END
+							"[0-3]" BEGIN
+								WRITE_BYTE ("%base%" + 0x0d + (0x47 * "%fx_type%")) "%___#resist_dispel%"
+							END
+							DEFAULT
+								PATCH_FAIL "~%DEST_FILE%~, ALTER_EFFECT_EX: ~resist_dispel~ must be an integer belonging to the interval [0,3] (you provided ~%___#resist_dispel%~)"
+						END
+
+						//PATCH_IF (___#duration >= 0)      BEGIN WRITE_LONG  (base + 0x0e + (0x12 * fx_type)) duration      END
+						PATCH_IF ("%___#duration%" STRING_COMPARE_CASE "SAME") BEGIN
+							LPF "EVALUATE_EXPRESSION"
+							INT_VAR
+								"current_value" = LONG_AT ("%base%" + 0x0e + (0x12 * "%fx_type%"))
+							STR_VAR
+								"expression" = "%___#duration%"
+							RET
+								"___#duration" = "value"
+							END
+							WRITE_LONG ("%base%" + 0x0e + (0x12 * "%fx_type%")) "%___#duration%"
+						END
+
+						PATCH_MATCH "%___#probability1%" WITH
+							"-1" BEGIN END
+							"[0-9]+" WHEN (("%___#probability1%" >= 0) AND ("%___#probability1%" <= 100)) BEGIN
+								WRITE_BYTE ("%base%" + 0x12 + (0x12 * "%fx_type%")) "%___#probability1%"
+							END
+							DEFAULT
+								PATCH_FAIL "~%DEST_FILE%~, ALTER_EFFECT_EX: ~probability1~ must be an integer belonging to the interval [0,100] (you provided ~%___#probability1%~)"
+						END
+
+						PATCH_MATCH "%___#probability2%" WITH
+							"-1" BEGIN END
+							"[0-9]+" WHEN (("%___#probability2%" >= 0) AND ("%___#probability2%" <= 100)) BEGIN
+								WRITE_BYTE ("%base%" + 0x13 + (0x13 * "%fx_type%")) "%___#probability2%"
+							END
+							DEFAULT
+								PATCH_FAIL "~%DEST_FILE%~, ALTER_EFFECT_EX: ~probability2~ must be an integer belonging to the interval [0,100] (you provided ~%___#probability2%~)"
+						END
+
+						PATCH_IF ("%___#dicenumber%" STRING_COMPARE_CASE "SAME") BEGIN
+							LPF "EVALUATE_EXPRESSION"
+							INT_VAR
+								"current_value" = LONG_AT ("%base%" + 0x1c + (0x14 * "%fx_type%"))
+							STR_VAR
+								"expression" = "%___#dicenumber%"
+							RET
+								"___#dicenumber" = "value"
+							END
+							WRITE_LONG ("%base%" + 0x1c + (0x14 * "%fx_type%")) "%___#dicenumber%"
+						END
+
+						PATCH_IF ("%___#dicesize%" STRING_COMPARE_CASE "SAME") BEGIN
+							LPF "EVALUATE_EXPRESSION"
+							INT_VAR
+								"current_value" = LONG_AT ("%base%" + 0x20 + (0x14 * "%fx_type%"))
+							STR_VAR
+								"expression" = "%___#dicesize%"
+							RET
+								"___#dicesize" = "value"
+							END
+							WRITE_LONG ("%base%" + 0x20 + (0x14 * "%fx_type%")) "%___#dicesize%"
+						END
+
+						//PATCH_IF (___#savetype >= 0)   BEGIN WRITE_LONG  (base + 0x24 + (0x14 * fx_type)) ___#savetype   END
+						PATCH_IF ("%___#savetype%" STRING_COMPARE_CASE "SAME") BEGIN
+							LPF "EVALUATE_EFFECT_SAVETYPE"
+							INT_VAR
+								"current_value" = LONG_AT ("%base%" + 0x24 + (0x14 * "%fx_type%"))
+							STR_VAR
+								"input" = "%___#savetype%"
+							RET
+								"___#savetype" = "output"
+							END
+							WRITE_LONG ("%base%" + 0x24 + (0x14 * "%fx_type%")) "%___#savetype%"
+						END
+
+						// PATCH_IF (___#savebonus >= "-10") BEGIN WRITE_LONG  (base + 0x28 + (0x14 * fx_type)) ___#savebonus     END
+						PATCH_MATCH "%___#savebonus%" WITH
+							"-11" BEGIN END
+							"-?[0-9]+" WHEN ("%___#savebonus%" >= "-10") BEGIN
+								WRITE_LONG ("%base%" + 0x28 + (0x14 * "%fx_type%")) "%___#savebonus%"
+							END
+							DEFAULT
+								PATCH_FAIL "~%DEST_FILE%~, ALTER_EFFECT_EX: ~savebonus~ must be an integer greater or equal than -10 (you provided ~%___#savebonus%~)"
+						END
+
+						//PATCH_IF (___#special >= 0)       BEGIN WRITE_LONG  (base + 0x2c + (0x14 * fx_type)) ___#special       END
+						PATCH_IF ("%___#special%" STRING_COMPARE_CASE "SAME") BEGIN
+							LPF "EVALUATE_EXPRESSION"
+							INT_VAR
+								"effect_number" = SHORT_AT ("%base%" + (0x08 * "%fx_type%"))
+								"current_value" = SLONG_AT ("%base%" + 0x2c + (0x14 * "%fx_type%")) // Mainly in case it's a bit field (see op#232, p2=15)
+							STR_VAR
+								"expression" = "%___#special%"
+							RET
+								"___#special" = "value"
+							END
+							WRITE_LONG ("%base%" + 0x2c + (0x14 * "%fx_type%")) "%___#special%"
+						END
+
+						PATCH_IF ("%___#resource%" STRING_COMPARE_CASE "SAME") BEGIN
+							WRITE_ASCIIE ("%base%" + 0x14 + (0x14 * "%fx_type%")) "%___#resource%" #8
+						END
+						// update the tracking vars
+						SET "alter" += 1
+						PATCH_IF ("%local_multi%" < 2) BEGIN  // kill loop if we only want one match
+							SET "index2" = "%counter%"
+						END ELSE BEGIN // otherwise bump vars and keep going
+							SET "local_multi" -= 1
+						END
+					END // end patch_if for a matched effect
+				END // end of the for loop through effects
+			END // end patch_if for matched/specified headers
+		END // end loop through effects on ability
+	END // end ability loop
+
+	PATCH_IF ("%alter%" == 0 && !"%___#silent%") BEGIN
+		PATCH_WARN "%TAB%ALTER_EFFECT_EX: no effects altered on ~%DEST_FILE%~"
+	END
+	// Display feedback message
+	PATCH_IF ("%___#verbose%" && !"%___#silent%") BEGIN
+		READ_LONG 0x0c "strref"
+		PATCH_IF (("%strref%" > 0) AND ("%strref%" < 200000)) BEGIN
+			READ_STRREF 0x0c "name"
+		END ELSE BEGIN
+			READ_STRREF 0x08 "name"
+		END
+		PATCH_PRINT "%TAB%ALTER_EFFECT_EX, ~%DEST_FILE%~ // %name%, %alter% effect(s) altered"
+		PATCH_SILENT
+	END
+END

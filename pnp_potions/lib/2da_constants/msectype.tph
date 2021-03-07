@@ -1,0 +1,14 @@
+DEFINE_ACTION_MACRO "MSECTYPE_2DA" BEGIN
+	LOCAL_SET "read_msectype" = 0
+	LOCAL_SET "i" = 0
+	LOCAL_SPRINT "identifier" ""
+	// Main
+	COPY_EXISTING - "MSECTYPE.2DA" "override"
+		READ_2DA_ENTRIES_NOW "read_msectype" 0
+		FOR ("i" = 4; "%i%" < "%read_msectype%"; "i" += 1) BEGIN	// Skip header rows and "None", start from "SpellProtections"
+			READ_2DA_ENTRY_FORMER "read_msectype" "%i%" 0 "identifier"
+			TO_UPPER "identifier"
+			SET "MSECTYPE_%identifier%" = "%i%" - 3
+		END
+	BUT_ONLY_IF_IT_CHANGES
+END

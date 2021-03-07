@@ -1,0 +1,738 @@
+DEFINE_ACTION_FUNCTION "pnp_potions"
+STR_VAR
+	"version" = ""
+BEGIN
+	// Init
+
+	ACTION_CLEAR_ARRAY "patch_data"
+
+	///////////////////////////////////////////////////////////////////////////////////////
+	// Add a new spell state
+	///////////////////////////////////////////////////////////////////////////////////////
+
+	LAF "ADD_IDS_ENTRY"
+	STR_VAR
+		"idsFile" = "SPLSTATE"
+		"identifier" = "POTION_IN_USE"
+	RET
+		"SPLSTATE_POTION_IN_USE" = "value"
+	END
+
+	///////////////////////////////////////////////////////////////////////////////////////
+	// Attempt to determine if a certain potion provides instantaneous effects or temporary effects
+	///////////////////////////////////////////////////////////////////////////////////////
+
+	LAF "GET_POTION_DATA"
+	RET_ARRAY
+		"potion_data"
+	END
+
+	///////////////////////////////////////////////////////////////////////////////////////
+	// Add a new custom portrait icon
+	///////////////////////////////////////////////////////////////////////////////////////
+
+	WITH_SCOPE BEGIN
+		ACTION_IF !(FILE_EXISTS_IN_GAME "gtpotn00.bam") BEGIN
+			COPY "%mod_root%/components/gtpotn00.bam" "override"
+		END
+	END
+
+	LAUNCH_ACTION_FUNCTION "CD_NEW_PORTRAIT_ICON"
+	INT_VAR
+		"string" = RESOLVE_STR_REF (@100002)
+	STR_VAR
+		"bam_file" = "gtpotn00"
+	RET
+		"STATDESC_POTION_IN_USE" = "icon"
+	END
+
+	///////////////////////////////////////////////////////////////////////////////////////
+	// (Fireball res): Spell dealing 5d10 Fire damage on Self, + 1d10 fire damage in 5' radius (small fireball) (total of 6d10 on Self)
+	///////////////////////////////////////////////////////////////////////////////////////
+
+	// PRO file
+
+	WITH_SCOPE BEGIN
+		ACTION_DEFINE_ASSOCIATIVE_ARRAY "patch_data" BEGIN
+			"trap_size" => "80"	// 16 = 1 foot
+			"explosion_size" => "80"	// 16 = 1 foot
+		END
+		LAF "CLONE_PROJECTILE"
+		STR_VAR
+			"edits" = "patch_data"
+			"file_list" = "FIREBALL=>GTFIRE05"
+			"idsname" = "Fireball_5_ft_Radius"
+		END
+	END
+
+	// SPL file
+
+	WITH_SCOPE BEGIN
+		ACTION_DEFINE_ASSOCIATIVE_ARRAY "patch_data" BEGIN
+			// Header
+			"spellbook_icon" => "%WIZARD_FIREBALL%C"
+			// Extended header(s)
+			"add_ability" => "range=>32767, icon=>%WIZARD_FIREBALL%B, projectile=>IDS_OF_SYMBOL (~PROJECTL~ ~GTFIRE05~) + 1"
+			// Feature block(s)
+			"add_effect" => "opcode=>324, parameter2=>63, resource=>GTPOTN#0, when=>%is_iwd%"	// Immunity to resource and message => Evasion check
+			"add_effect2" => "opcode=>12, parameter2=>%DMGTYPE_FIRE%, timing=>1, dicenumber=>1, dicesize=>10, savetype=>BypassMI"	// Damage
+			"add_effect3" => "opcode=>318, parameter2=>44, resource=>GTPOTN#0"	// Protection from resource => !SOURCE
+			"clone_effect" => "match_opcode=>12, dicenumber=>5, dicesize=>10, insert=>last"	// Damage
+		END
+		LAF "MAKE_SPELL"
+		STR_VAR
+			"edits" = "patch_data"
+			"filename" = "GTPOTN#0"
+		END
+	END
+
+	///////////////////////////////////////////////////////////////////////////////////////
+	// (Poison res): Spell killing if not immune to poison.
+	///////////////////////////////////////////////////////////////////////////////////////
+
+	WITH_SCOPE BEGIN
+		ACTION_DEFINE_ASSOCIATIVE_ARRAY "patch_data" BEGIN
+			// Header
+			"spellbook_icon" => "%CLERIC_POISON%C"
+			// Extended header(s)
+			"add_ability" => "range=>32767, icon=>%CLERIC_POISON%B"
+			// Feature block(s)
+			"add_effect" => "opcode=>318, parameter2=>77, resource=>GTPOTN#1"	// Protection from resource => STAT(RESISTPOISON)>=100
+			"add_effect2" => "opcode=>215, parameter2=>1, duration=>1, resource=>POISON"	// Play visual effect => Over target (attached)
+			"add_effect3" => "opcode=>13, parameter2=>%BIT2%, timing=>1"	// Kill target => Normal death
+		END
+		LAF "MAKE_SPELL"
+		STR_VAR
+			"edits" = "patch_data"
+			"filename" = "GTPOTN#1"
+		END
+	END
+
+	///////////////////////////////////////////////////////////////////////////////////////
+	// (Stat Loss res): Spell causing 1 STR and 1 DEX loss (+ nausea for 1 round...?)
+	///////////////////////////////////////////////////////////////////////////////////////
+
+	WITH_SCOPE BEGIN
+		ACTION_DEFINE_ASSOCIATIVE_ARRAY "patch_data" BEGIN
+			// Header
+			"spellbook_icon" => "%WIZARD_RAY_OF_ENFEEBLEMENT%C"
+			// Extended header(s)
+			"add_ability" => "range=>32767, icon=>%WIZARD_RAY_OF_ENFEEBLEMENT%B"
+			// Feature block(s)
+			"add_effect" => "opcode=>15, parameter1=>-1, timing=>1"	// Strength bonus
+			"add_effect2" => "opcode=>44, parameter1=>-1, timing=>1"	// Dexterity bonus
+			"add_effect3" => "opcode=>39, parameter2=>1, duration=>6, special=>%STATDESC_NAUSEATED%"	// Sleep (Nausea) => Do not wake on hit
+		END
+		LAF "MAKE_SPELL"
+		STR_VAR
+			"edits" = "patch_data"
+			"filename" = "GTPOTN#2"
+		END
+	END
+
+	///////////////////////////////////////////////////////////////////////////////////////
+	// (Remove res): Spell containing op321 for every (temporary) potion resref
+	///////////////////////////////////////////////////////////////////////////////////////
+
+	WITH_SCOPE BEGIN
+		ACTION_DEFINE_ASSOCIATIVE_ARRAY "patch_data" BEGIN
+			// Header
+			//"spellbook_icon" => "%WIZARD_RAY_OF_ENFEEBLEMENT%C"
+			// Extended header(s)
+			"add_ability" => "range=>32767"
+			// Feature block(s)
+		END
+		LAF "MAKE_SPELL"
+		STR_VAR
+			"edits" = "patch_data"
+			"filename" = "GTPOTN#3"
+		END
+	END
+
+	WITH_SCOPE BEGIN
+		OUTER_TEXT_SPRINT "temp_potion_list" ""
+		ACTION_PHP_EACH "potion_data" AS "potion_res" => "potion_type" BEGIN
+			ACTION_IF ("%potion_type%" STRING_EQUAL_CASE "temporary") BEGIN
+				ACTION_IF ("%temp_potion_list%" STRING_EQUAL_CASE "") BEGIN
+					OUTER_TEXT_SPRINT "temp_potion_list" "%potion_res%"
+				END ELSE BEGIN
+					OUTER_TEXT_SPRINT "temp_potion_list" "%temp_potion_list%,%potion_res%"
+				END
+			END
+		END
+
+		LAF "LENGTH_OF_LIST"
+		STR_VAR
+			"list" = "%temp_potion_list%"
+			"separator" = ","
+		RET
+			"length"
+		END
+
+		ACTION_MATCH "%length%" WITH
+			"0" BEGIN END
+			"1" BEGIN
+				ACTION_DEFINE_ASSOCIATIVE_ARRAY "patch_data" BEGIN
+					// Header
+					// Extended header(s)
+					// Feature block(s)
+					"add_effect" => "opcode=>321, timing=>1, resource=>%temp_potion_list%"	// Remove effects by resource
+				END
+				LAF "EDIT_SPELL"
+				STR_VAR
+					"edits" = "patch_data"
+					"file_list" = "GTPOTN#3"
+				END
+			END
+			DEFAULT
+				ACTION_DEFINE_ASSOCIATIVE_ARRAY "patch_data" BEGIN
+					// Header
+					// Extended header(s)
+					// Feature block(s)
+					"add_effect" => "opcode=>321, timing=>1, resource=>{%temp_potion_list%}"	// Remove effects by resource
+				END
+				LAF "EDIT_SPELL"
+				STR_VAR
+					"edits" = "patch_data"
+					"file_list" = "GTPOTN#3"
+				END
+		END
+	END
+
+	///////////////////////////////////////////////////////////////////////////////////////
+	// 10% chance of half effectiveness, 8% chance of +50% effectiveness, and 1% chance of permanent effectiveness
+	///////////////////////////////////////////////////////////////////////////////////////
+
+	ACTION_PHP_EACH "potion_data" AS "potion_res" => "potion_type" BEGIN
+		LAF "HALF_EFFECTIVENESS" END
+		LAF	"PLUS_50_PERCENT_EFFECTIVENESS" END
+		LAF "PERMANENT_DOUBLE_EFFECTIVENESS" END
+	END
+
+	///////////////////////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////////////////////
+	// Main
+	///////////////////////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////////////////////
+
+	ACTION_PHP_EACH "potion_data" AS "potion_res" => "potion_type" BEGIN
+		WITH_SCOPE BEGIN
+			// Take note of each potion's identified name (string)
+			SILENT
+			COPY_EXISTING - "%potion_res%.itm" "override"
+				READ_STRREF NAME2 "id_name_string"
+			BUT_ONLY_IF_IT_CHANGES
+			VERBOSE
+			// Main
+			ACTION_DEFINE_ASSOCIATIVE_ARRAY "patch_data" BEGIN
+				// Feature block(s)
+				"delete_effect" => "match_opcode=>139, match_parameter1=>16233"	// Display string => "*gulp*"
+				"delete_effect2" => "match_opcode=>139, match_parameter1=>35539, when=>%is_iwd%"	// Display string => "*gulp*"
+				"add_effect" => "opcode=>139, header_target=>5, target=>1, parameter1=>16233, timing=>1, resist_dispel=>3, insert_point=>0"	// Display string => "*gulp*" ("Gulp!" on IWDEE)
+				// op326: param1=POTION, param2=SPLSTATE, prob1=0, prob2=0, resource = (Fireball res)
+				"add_effect2" => "opcode=>326, header_target=>5, target=>1, parameter1=>%SPLSTATE_POTION_IN_USE%, parameter2=>110, timing=>1, probability1=>0, resource=>GTPOTN#0, insert_point=>1"	// Apply effects list => SPLSTATE=POTION_IN_USE
+				// op326: param1=POTION, param2=SPLSTATE, prob1=2, prob2=1, resource = (Poison res)
+				"add_effect3" => "opcode=>326, header_target=>5, target=>1, parameter1=>%SPLSTATE_POTION_IN_USE%, parameter2=>110, timing=>1, probability1=>2, probability2=>1, resource=>GTPOTN#1, insert_point=>2"	// Apply effects list => SPLSTATE=POTION_IN_USE
+				// op326: param1=POTION, param2=SPLSTATE, prob1=7, prob2=3, resource = (Stat Loss res) + Feedback string
+				"add_effect4" => "opcode=>139, header_target=>5, target=>1, parameter1=>@4, timing=>1, probability1=>7, probability2=>3, insert_point=>3"	// Display string
+				"add_effect5" => "opcode=>326, header_target=>5, target=>1, parameter1=>%SPLSTATE_POTION_IN_USE%, parameter2=>110, timing=>1, probability1=>7, probability2=>3, resource=>GTPOTN#2, insert_point=>4"	// Apply effects list => SPLSTATE=POTION_IN_USE
+				// op326: param1=POTION, param2=SPLSTATE, prob1=14, prob2=8, resource = (Removal res) + Feedback string
+				"add_effect6" => "opcode=>139, header_target=>5, target=>1, parameter1=>@5, timing=>1, probability1=>14, probability2=>8, insert_point=>5"	// Display string
+				"add_effect7" => "opcode=>326, header_target=>5, target=>1, parameter1=>%SPLSTATE_POTION_IN_USE%, parameter2=>110, timing=>1, probability1=>14, probability2=>8, resource=>GTPOTN#3, insert_point=>6"	// Apply effects list => SPLSTATE=POTION_IN_USE
+				// 10% chance the current potion does nothing
+				"add_effect8" => "opcode=>139, header_target=>5, target=>1, parameter1=>@6, timing=>1, probability1=>24, probability2=>15, insert_point=>7"	// Display string
+			END
+			// Temporary vs. Instantaneous (scalable)
+			ACTION_MATCH "%potion_type%" WITH
+				"temporary" BEGIN
+					ACTION_DEFINE_ASSOCIATIVE_ARRAY "patch_data" BEGIN
+						// op318: param1=POTION, param2=SPLSTATE, prob1=43, prob2=0, resource = (this Potion) => So as to block "normal or better" if one of the above fires
+						// This also includes the "10% chance the current potion does nothing"
+						"add_effect9" => "opcode=>318, header_target=>5, target=>1, parameter1=>%SPLSTATE_POTION_IN_USE%, parameter2=>110, resource=>%potion_res%, probability1=>43, insert_point=>11"	// Protection from resource => SPLSTATE=POTION_IN_USE
+						// Set the POTION_IN_USE spell state
+						"clone_effect" => "match_timing=>0, match_duration_high=>5, opcode=>328, parameter1=>0, parameter2=>%SPLSTATE_POTION_IN_USE%, special=>1"	// Set spell state => SPLSTATE=POTION_IN_USE
+						// Set the POTION_IN_USE portrait icon
+						"clone_effect2" => "match_opcode=>328, match_parameter2=>%SPLSTATE_POTION_IN_USE%, opcode=>142, parameter2=>%STATDESC_POTION_IN_USE%, special=>0"	// Display portrait icon => POTION_IN_USE
+					END
+				END
+				"instantaneous_scalable" BEGIN
+					ACTION_DEFINE_ASSOCIATIVE_ARRAY "patch_data" BEGIN
+						// Set the POTION_IN_USE spell state
+						"add_effect9" => "opcode=>328, target=>1, parameter2=>%SPLSTATE_POTION_IN_USE%, duration=>60, special=>1, resist_dispel=>3"	// Set spell state => SPLSTATE=POTION_IN_USE
+						// Set the POTION_IN_USE portrait icon
+						"clone_effect" => "match_opcode=>328, match_parameter2=>%SPLSTATE_POTION_IN_USE%, opcode=>142, parameter2=>%STATDESC_POTION_IN_USE%, special=>0"	// Display portrait icon => POTION_IN_USE
+						// op318: param1=POTION, param2=SPLSTATE, prob1=43, prob2=0, resource = (this Potion) => So as to block "normal or better" if one of the above fires
+						// This also includes the "10% chance the current potion does nothing"
+						"add_effect10" => "opcode=>318, header_target=>5, target=>1, parameter1=>%SPLSTATE_POTION_IN_USE%, parameter2=>110, resource=>%potion_res%, probability1=>43, insert_point=>11"	// Protection from resource => SPLSTATE=POTION_IN_USE
+					END
+				END
+				"instantaneous_not_scalable" BEGIN
+					ACTION_DEFINE_ASSOCIATIVE_ARRAY "patch_data" BEGIN
+						// Set the POTION_IN_USE spell state
+						"add_effect9" => "opcode=>328, target=>1, parameter2=>%SPLSTATE_POTION_IN_USE%, duration=>60, special=>1, resist_dispel=>3"	// Set spell state => SPLSTATE=POTION_IN_USE
+						// Set the POTION_IN_USE portrait icon
+						"clone_effect" => "match_opcode=>328, match_parameter2=>%SPLSTATE_POTION_IN_USE%, opcode=>142, parameter2=>%STATDESC_POTION_IN_USE%, special=>0"	// Display portrait icon => POTION_IN_USE
+						// op318: param1=POTION, param2=SPLSTATE, prob1=24, prob2=0, resource = (this Potion) => So as to block "normal or better" if one of the above fires
+						// This also includes the "10% chance the current potion does nothing"
+						"add_effect10" => "opcode=>318, header_target=>5, target=>1, parameter1=>%SPLSTATE_POTION_IN_USE%, parameter2=>110, resource=>%potion_res%, probability1=>24, insert_point=>8"	// Protection from resource => SPLSTATE=POTION_IN_USE
+					END
+				END
+				DEFAULT
+					FAIL "~%potion_res%~: should not happen"
+			END
+			LAF "EDIT_ITEM"
+			STR_VAR
+				"edits" = "patch_data"
+				"file_list" = "%potion_res%"
+			END
+		END
+	END
+END
+
+///////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////
+// Attempt to determine if a certain potion provides instantaneous effects or temporary effects
+///////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////
+
+DEFINE_ACTION_FUNCTION "GET_POTION_DATA"
+RET_ARRAY
+	"potion_data"
+BEGIN
+	SILENT
+	// Init
+	ACTION_CLEAR_ARRAY "potion_data"
+	OUTER_SPRINT "oil_string" @100001
+	// Main
+	COPY_EXISTING_REGEXP - "^.+\.ITM$" "override"
+	//COPY_EXISTING_REGEXP - "^POTN[0-9][0-9]\.ITM$" "override"
+		// Init
+		TEXT_SPRINT "potion_type" "instantaneous_not_scalable"
+		SET "success" = 0
+		// SOURCE_SIZE check
+		PATCH_IF (SOURCE_SIZE > 0x71) BEGIN
+			// DEST_RES check
+			TO_UPPER "DEST_RES"
+			PATCH_IF ("%DEST_RES%" STRING_MATCHES_REGEXP "\(POTN47\|WAND16\|POTNMARE\|OHBPTN\(03\|04\|10\|11\)\)") BEGIN
+				READ_STRREF NAME2 "id_name_string"
+				// Identified Name check
+				PATCH_IF ("%id_name_string%" STRING_CONTAINS_REGEXP "\b%oil_string%\b") BEGIN
+					// "Critical item" (plot item) check
+					PATCH_IF ((LONG_AT (0x18) BAND BIT0) == 0) BEGIN
+						// "Droppable" and "Displayable" checks
+						PATCH_IF ((LONG_AT (0x18) BAND BIT2) AND (LONG_AT (0x18) BAND BIT3)) BEGIN
+							// Category check
+							PATCH_IF (SHORT_AT (0x1C) == IDS_OF_SYMBOL ("ITEMCAT" "POTION")) BEGIN
+								// Identified description check
+								PATCH_IF (SLONG_AT (DESC) > 0) BEGIN
+									GET_OFFSET_ARRAY "ab_array" ITM_V10_HEADERS
+									PHP_EACH "ab_array" AS "ind" => "ab_offset" BEGIN
+										// Ability target check
+										PATCH_IF (BYTE_AT ("%ab_offset%" + 0xC) == 5) BEGIN
+											// # effects check
+											PATCH_IF (SHORT_AT ("%ab_offset%" + 0x1E) > 0) BEGIN
+												// Ability projectile check
+												PATCH_IF (SHORT_AT ("%ab_offset%" + 0x2A) == 1) BEGIN
+													SET "success" = 1
+													GET_OFFSET_ARRAY2 "fx_array" "%ab_offset%" ITM_V10_HEAD_EFFECTS
+													PHP_EACH "fx_array" AS "ind2" => "fx_offset" BEGIN
+														PATCH_MATCH (SHORT_AT ("%fx_offset%" + 0x0)) WITH
+															"142" "174" "233" "282" "328" BEGIN
+																// Op174 (Play sound) needed to correctly flag edge cases (f.i. IWDEE "Red Potion – POTN15")
+																PATCH_IF ((BYTE_AT ("%fx_offset%" + 0xC) == 0) OR (BYTE_AT ("%fx_offset%" + 0xC) == 3) OR (BYTE_AT ("%fx_offset%" + 0xC) == 4)) BEGIN
+																	// Timing Mode check: needed to correctly flag edge case (f.i. IWDEE "Potion of Invisibility – POTN10" apply op174 with `timing_mode=1` and `duration=7200`!!!)
+																	PATCH_IF (LONG_AT ("%fx_offset%" + 0xE) > 5) BEGIN
+																		// Duration check: try to exclude cosmetic effects...
+																		TEXT_SPRINT "potion_type" "temporary"
+																	END
+																END
+															END
+															"12" "17" "159" "200" "201" "218" "223" "226" "227" "228" "259" WHEN ("%potion_type%" STRING_COMPARE_CASE "temporary") BEGIN
+																TEXT_SPRINT "potion_type" "instantaneous_scalable"
+															END
+															DEFAULT
+														END
+													END
+												END
+											END
+										END
+									END
+								END
+							END
+						END
+					END
+				END
+			END
+		END
+		PATCH_IF "%success%" BEGIN
+			DEFINE_ASSOCIATIVE_ARRAY "potion_data" BEGIN
+				"%DEST_RES%" => "%potion_type%"
+			END
+		END
+	BUT_ONLY_IF_IT_CHANGES
+	VERBOSE
+END
+
+///////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////
+// Half effectiveness
+///////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////
+
+DEFINE_ACTION_FUNCTION "HALF_EFFECTIVENESS"
+BEGIN
+	ACTION_IF (("%potion_type%" STRING_MATCHES_REGEXP "^\(temporary\|instantaneous_scalable\)$") == 0) BEGIN
+		// Generate a unique filename for each potion
+		LAF "GET_UNIQUE_FILE_NAME"
+		STR_VAR
+			"extension" = "spl"
+			"base" = "PnP_Potions_%potion_res%_Half_Effectiveness"
+		RET
+			"filename"
+		END
+		/*// Slightly edit it
+		OUTER_PATCH_SAVE "half_effectiveness" "%filename%" BEGIN
+			REPLACE_TEXTUALLY CASE_INSENSITIVE EXACT_MATCH "__" "GTHA"
+		END*/
+		// Generate a SPL file with that name
+		WITH_SCOPE BEGIN
+			ACTION_DEFINE_ASSOCIATIVE_ARRAY "patch_data" BEGIN
+				// Header
+				//"spellbook_icon" => "%WIZARD_RAY_OF_ENFEEBLEMENT%C"
+				// Extended header(s)
+				"add_ability" => "range=>32767, target=>5"
+				// Feature block(s)
+			END
+			LAF "MAKE_SPELL"
+			STR_VAR
+				"edits" = "patch_data"
+				"filename"
+			END
+		END
+		// Copy current potion effects into the newly created SPL file
+		// ... and take its identified name (string)
+		COPY_EXISTING - "%potion_res%.itm" "override"
+			READ_STRREF NAME2 "id_name_string"
+			LPF "ITEM_EFFECT_TO_SPELL"
+			INT_VAR
+				"type" = 3	// Magical
+			STR_VAR
+				"new_itm_spl" = "%filename%.spl"
+			END
+		BUT_ONLY_IF_IT_CHANGES
+		// Adjust the effects (`duration` vs. `parameter1`) accordingly
+		WITH_SCOPE BEGIN
+			ACTION_MATCH "%potion_type%" WITH
+				"temporary" BEGIN
+					// Include it into "removal_res"
+					WITH_SCOPE BEGIN
+						ACTION_DEFINE_ASSOCIATIVE_ARRAY "patch_data" BEGIN
+							"clone_effect" => "match_resource=>%potion_res%, resource=>%filename%, insert=>below"	// Remove effects by resource
+						END
+						LAF "EDIT_SPELL"
+						STR_VAR
+							"edits" = "patch_data"
+							"file_list" = "GTPOTN#3"
+						END
+					END
+					// Implement half effectiveness
+					ACTION_DEFINE_ASSOCIATIVE_ARRAY "patch_data" BEGIN
+						"delete_effect" => "match_opcode=>139, match_parameter1=>16233"	// Display string => "*gulp*"
+						"delete_effect2" => "match_opcode=>139, match_parameter1=>35539, when=>%is_iwd%"	// Display string => "*gulp*"
+						// Set the POTION_IN_USE spell state
+						"clone_effect" => "match_timing=>0, match_duration_high=>5, opcode=>328, parameter1=>0, parameter2=>%SPLSTATE_POTION_IN_USE%, special=>1"	// Set spell state => SPLSTATE=POTION_IN_USE
+						// Set the POTION_IN_USE portrait icon
+						"clone_effect2" => "match_opcode=>328, match_parameter2=>%SPLSTATE_POTION_IN_USE%, opcode=>142, parameter2=>%STATDESC_POTION_IN_USE%, special=>0"	// Display portrait icon => POTION_IN_USE
+						// 10% chance of half effectiveness (duration)
+						"alter_effect" => "match_opcode_exclude=>\(20\|119\|159\|200\|201\|218\|223\|226\|227\|228\|259\), match_duration_high=>5, match_timing=>{0,3,4}, duration=>(THIS / 2)"	// Half effectiveness (`duration`) => Exclude effects (use "^" and "$" in the regexp so that strings like "206", which contain "20", are correctly handled) that can end prematurely (Invisibility, Stoneskin, Deflection/Reflection/Trap, etc...)
+						// Pay attention to Elven Healing Wine and similar...
+						"alter_effect2" => "match_opcode=>{12,17}, match_parameter1=>0, match_dicenumber=>1, dicesize=>(THIS > 1 ? (THIS / 2) : THIS)"	// Half effectiveness (`dicesize`). For instance: `0+1d8` => `0+1d4`
+						"alter_effect3" => "match_opcode=>{12,17}, match_parameter1=>0, match_dicenumber_high=>1, dicenumber=>(THIS > 1 ? (THIS / 2) : THIS)"	// Half effectiveness (`dicenumber`). For instance: `0+2d8` => `0+1d8`
+						"alter_effect4" => "match_opcode=>{12,17,159,200,201,218,223,226,227,228,259}, parameter1=>(THIS > 1 ? (THIS / 2) : THIS)"	// Half effectiveness (`parameter1`). For instance: `2+XdY` => `1+XdY`
+						// Feedback string
+						"add_effect" => "opcode=>139, target=>1, parameter1=>@0, timing=>1, insert_point=>0"	// Display string
+					END
+				END
+				"instantaneous_scalable" BEGIN
+					ACTION_DEFINE_ASSOCIATIVE_ARRAY "patch_data" BEGIN
+						"delete_effect" => "match_opcode=>139, match_parameter1=>16233"	// Display string => "*gulp*"
+						"delete_effect2" => "match_opcode=>139, match_parameter1=>35539, when=>%is_iwd%"	// Display string => "*gulp*"
+						// Set the POTION_IN_USE spell state
+						"add_effect" => "opcode=>328, target=>1, parameter2=>%SPLSTATE_POTION_IN_USE%, duration=>60, special=>1, resist_dispel=>3"	// Set spell state => SPLSTATE=POTION_IN_USE
+						// Set the POTION_IN_USE portrait icon
+						"clone_effect" => "match_opcode=>328, match_parameter2=>%SPLSTATE_POTION_IN_USE%, opcode=>142, parameter2=>%STATDESC_POTION_IN_USE%, special=>0"	// Display portrait icon => POTION_IN_USE
+						// 10% chance of half effectiveness
+						// Pay attention to Elven Healing Wine and similar...
+						"alter_effect" => "match_opcode=>{12,17}, match_parameter1=>0, match_dicenumber=>1, dicesize=>(THIS > 1 ? (THIS / 2) : THIS)"	// Half effectiveness (`dicesize`). For instance: `0+1d8` => `0+1d4`
+						"alter_effect2" => "match_opcode=>{12,17}, match_parameter1=>0, match_dicenumber_high=>1, dicenumber=>(THIS > 1 ? (THIS / 2) : THIS)"	// Half effectiveness (`dicenumber`). For instance: `0+2d8` => `0+1d8`
+						"alter_effect3" => "match_opcode=>{12,17,159,200,201,218,223,226,227,228,259}, parameter1=>(THIS > 1 ? (THIS / 2) : THIS)"	// Half effectiveness (`parameter1`). For instance: `2+XdY` => `1+XdY`
+						// Feedback string
+						"add_effect2" => "opcode=>139, target=>1, parameter1=>@0, timing=>1, insert_point=>0"	// Display string
+					END
+				END
+				DEFAULT
+					FAIL "~%potion_res%~: should not happen"
+			END
+			LAF "EDIT_SPELL"
+			STR_VAR
+				"edits" = "patch_data"
+				"file_list" = "%filename%"
+			END
+		END
+		// Add it to the main potion file (via op326)
+		WITH_SCOPE BEGIN
+			ACTION_DEFINE_ASSOCIATIVE_ARRAY "patch_data" BEGIN
+				"add_effect" => "opcode=>326, target=>1, parameter1=>%SPLSTATE_POTION_IN_USE%, parameter2=>110, timing=>1, probability1=>34, probability2=>25, resource=>%filename%, insert_point=>0"	// Apply effects list
+			END
+			LAF "EDIT_ITEM"
+			STR_VAR
+				"edits" = "patch_data"
+				"file_list" = "%potion_res%"
+			END
+		END
+	END
+END
+
+///////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////
+// +50% effectiveness
+///////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////
+
+DEFINE_ACTION_FUNCTION "PLUS_50_PERCENT_EFFECTIVENESS"
+BEGIN
+	ACTION_IF (("%potion_type%" STRING_MATCHES_REGEXP "^\(temporary\|instantaneous_scalable\)$") == 0) BEGIN
+		// Generate a unique filename for each potion
+		LAF "GET_UNIQUE_FILE_NAME"
+		STR_VAR
+			"extension" = "spl"
+			"base" = "PnP_Potions_%potion_res%_Plus_50_Percent_Effectiveness"	// Avoid using special (regexp) characters (a.k.a. write "+50%" as "Plus_50_Percent")
+		RET
+			"filename"
+		END
+		/*// Slightly edit it
+		OUTER_PATCH_SAVE "plus_50_effectiveness" "%filename%" BEGIN
+			REPLACE_TEXTUALLY CASE_INSENSITIVE EXACT_MATCH "__" "GT50"
+		END*/
+		// Generate a SPL file with that name
+		WITH_SCOPE BEGIN
+			ACTION_DEFINE_ASSOCIATIVE_ARRAY "patch_data" BEGIN
+				// Header
+				//"spellbook_icon" => "%WIZARD_RAY_OF_ENFEEBLEMENT%C"
+				// Extended header(s)
+				"add_ability" => "range=>32767, target=>5"
+				// Feature block(s)
+			END
+			LAF "MAKE_SPELL"
+			STR_VAR
+				"edits" = "patch_data"
+				"filename"
+			END
+		END
+		// Copy current potion effects into the newly created SPL file...
+		// ... and take note of its identified name (string)
+		COPY_EXISTING - "%potion_res%.itm" "override"
+			READ_STRREF NAME2 "id_name_string"
+			LPF "ITEM_EFFECT_TO_SPELL"
+			INT_VAR
+				"type" = 3	// Magical
+			STR_VAR
+				"new_itm_spl" = "%filename%.spl"
+			END
+		BUT_ONLY_IF_IT_CHANGES
+		// Adjust the effects (`duration` vs. `parameter1`) accordingly
+		WITH_SCOPE BEGIN
+			ACTION_MATCH "%potion_type%" WITH
+				"temporary" BEGIN
+					// Include it into "removal_res"
+					WITH_SCOPE BEGIN
+						ACTION_DEFINE_ASSOCIATIVE_ARRAY "patch_data" BEGIN
+							"clone_effect" => "match_resource=>%potion_res%, resource=>%filename%, insert=>below"	// Remove effects by resource
+						END
+						LAF "EDIT_SPELL"
+						STR_VAR
+							"edits" = "patch_data"
+							"file_list" = "GTPOTN#3"
+						END
+					END
+					// Implement +50% effectiveness
+					ACTION_DEFINE_ASSOCIATIVE_ARRAY "patch_data" BEGIN
+						"delete_effect" => "match_opcode=>139, match_parameter1=>16233"	// Display string => "*gulp*"
+						"delete_effect2" => "match_opcode=>139, match_parameter1=>35539, when=>%is_iwd%"	// Display string => "*gulp*"
+						"delete_effect3" => "match_opcode=>326, match_parameter1=>%SPLSTATE_POTION_IN_USE%, match_parameter2=>110"	// Apply effects list
+						// Set the POTION_IN_USE spell state
+						"clone_effect" => "match_timing=>0, match_duration_high=>5, opcode=>328, parameter1=>0, parameter2=>%SPLSTATE_POTION_IN_USE%, special=>1"	// Set spell state => SPLSTATE=POTION_IN_USE
+						// Set the POTION_IN_USE portrait icon
+						"clone_effect2" => "match_opcode=>328, match_parameter2=>%SPLSTATE_POTION_IN_USE%, opcode=>142, parameter2=>%STATDESC_POTION_IN_USE%, special=>0"	// Display portrait icon => POTION_IN_USE
+						// 8% chance of +50% effectiveness
+						"alter_effect" => "match_opcode_exclude=>\(20\|119\|159\|200\|201\|218\|223\|226\|227\|228\|259\), match_duration_high=>5, match_timing=>{0,3,4}, duration=>(3 * THIS / 2)"	// +50% effectiveness (`duration`) => Exclude effects (use "^" and "$" in the regexp so that strings like "206", which contain "20", are correctly handled) that can end prematurely (Invisibility, Stoneskin, Deflection/Reflection/Trap, etc...)
+						// Pay attention to Elven Healing Wine and similar...
+						"alter_effect2" => "match_opcode=>{12,17}, match_parameter1=>0, match_dicenumber=>1, dicesize=>(3 * THIS / 2)"	// +50% effectiveness (`dicesize`). For instance: `0+1d8` => `0+1d12`
+						"alter_effect3" => "match_opcode=>{12,17}, match_parameter1=>0, match_dicenumber_high=>1, dicenumber=>(3 * THIS / 2)"	// +50% effectiveness (`dicenumber`). For instance: `0+2d8` => `0+3d8`
+						"alter_effect4" => "match_opcode=>{12,17,159,200,201,218,223,226,227,228,259}, parameter1=>(3 * THIS / 2)"	// +50% effectiveness (`parameter1`). For instance: `2+XdY` => `3+XdY`
+						// Feedback string
+						"add_effect" => "opcode=>139, target=>1, parameter1=>@1, timing=>1, insert_point=>0"	// Display string
+					END
+				END
+				"instantaneous_scalable" BEGIN
+					ACTION_DEFINE_ASSOCIATIVE_ARRAY "patch_data" BEGIN
+						"delete_effect" => "match_opcode=>139, match_parameter1=>16233"	// Display string => "*gulp*"
+						"delete_effect2" => "match_opcode=>139, match_parameter1=>35539, when=>%is_iwd%"	// Display string => "*gulp*"
+						"delete_effect3" => "match_opcode=>326, match_parameter1=>%SPLSTATE_POTION_IN_USE%, match_parameter2=>110"	// Apply effects list
+						// Set the POTION_IN_USE spell state
+						"add_effect" => "opcode=>328, target=>1, parameter2=>%SPLSTATE_POTION_IN_USE%, duration=>60, special=>1, resist_dispel=>3"	// Set spell state => SPLSTATE=POTION_IN_USE
+						// Set the POTION_IN_USE portrait icon
+						"clone_effect" => "match_opcode=>328, match_parameter2=>%SPLSTATE_POTION_IN_USE%, opcode=>142, parameter2=>%STATDESC_POTION_IN_USE%, special=>0"	// Display portrait icon => POTION_IN_USE
+						// 8% chance of +50% effectiveness
+						// Pay attention to Elven Healing Wine and similar...
+						"alter_effect" => "match_opcode=>{12,17}, match_parameter1=>0, match_dicenumber=>1, dicesize=>(3 * THIS / 2)"	// +50% effectiveness (`dicesize`). For instance: `0+1d8` => `0+1d12`
+						"alter_effect2" => "match_opcode=>{12,17}, match_parameter1=>0, match_dicenumber_high=>1, dicenumber=>(3 * THIS / 2)"	// +50% effectiveness (`dicenumber`). For instance: `0+2d8` => `0+3d8`
+						"alter_effect3" => "match_opcode=>{12,17,159,200,201,218,223,226,227,228,259}, parameter1=>(3 * THIS / 2)"	// +50% effectiveness (`parameter1`). For instance: `2+XdY` => `3+XdY`
+						// Feedback string
+						"add_effect2" => "opcode=>139, target=>1, parameter1=>@1, timing=>1, insert_point=>0"	// Display string
+					END
+				END
+				DEFAULT
+					FAIL "~%potion_res%~: should not happen"
+			END
+			LAF "EDIT_SPELL"
+			STR_VAR
+				"edits" = "patch_data"
+				"file_list" = "%filename%"
+			END
+		END
+		// Add it to the main potion file (via op326)
+		WITH_SCOPE BEGIN
+			ACTION_DEFINE_ASSOCIATIVE_ARRAY "patch_data" BEGIN
+				"add_effect" => "opcode=>326, target=>1, parameter1=>%SPLSTATE_POTION_IN_USE%, parameter2=>110, timing=>1, probability1=>42, probability2=>35, resource=>%filename%, insert_point=>1"	// Apply effects list
+			END
+			LAF "EDIT_ITEM"
+			STR_VAR
+				"edits" = "patch_data"
+				"file_list" = "%potion_res%"
+			END
+		END
+	END
+END
+
+DEFINE_ACTION_FUNCTION "PERMANENT_DOUBLE_EFFECTIVENESS"
+BEGIN
+	ACTION_IF (("%potion_type%" STRING_MATCHES_REGEXP "^\(temporary\|instantaneous_scalable\)$") == 0) BEGIN
+		// Generate a unique filename for each potion
+		ACTION_MATCH "%potion_type%" WITH
+			"temporary" BEGIN
+				LAF "GET_UNIQUE_FILE_NAME"
+				STR_VAR
+					"extension" = "spl"
+					"base" = "PnP_Potions_%potion_res%_Permanent_Effectiveness"
+				RET
+					"filename"
+				END
+			END
+			"instantaneous_scalable" BEGIN
+				LAF "GET_UNIQUE_FILE_NAME"
+				STR_VAR
+					"extension" = "spl"
+					"base" = "PnP_Potions_%potion_res%_Double_Effectiveness"
+				RET
+					"filename"
+				END
+			END
+			DEFAULT
+				FAIL "~%potion_res%~: should not happen"
+		END
+		/*// Slightly edit it
+		OUTER_PATCH_SAVE "permanent_effectiveness" "%filename%" BEGIN
+			REPLACE_TEXTUALLY CASE_INSENSITIVE EXACT_MATCH "__" "GTPE"
+		END*/
+		// Generate a SPL file with that name
+		WITH_SCOPE BEGIN
+			ACTION_DEFINE_ASSOCIATIVE_ARRAY "patch_data" BEGIN
+				// Header
+				//"spellbook_icon" => "%WIZARD_RAY_OF_ENFEEBLEMENT%C"
+				// Extended header(s)
+				"add_ability" => "range=>32767, target=>5"
+				// Feature block(s)
+			END
+			LAF "MAKE_SPELL"
+			STR_VAR
+				"edits" = "patch_data"
+				"filename"
+			END
+		END
+		// Copy current potion effects into the newly created SPL file...
+		// ... and take note of its identified name (string)
+		COPY_EXISTING - "%potion_res%.itm" "override"
+			READ_STRREF NAME2 "id_name_string"
+			LPF "ITEM_EFFECT_TO_SPELL"
+			INT_VAR
+				"type" = 3	// Magical
+			STR_VAR
+				"new_itm_spl" = "%filename%.spl"
+			END
+		BUT_ONLY_IF_IT_CHANGES
+		// Adjust the effects (`duration` vs. `parameter1`) accordingly
+		WITH_SCOPE BEGIN
+			ACTION_MATCH "%potion_type%" WITH
+				"temporary" BEGIN
+					// Implement permanent effectiveness
+					ACTION_DEFINE_ASSOCIATIVE_ARRAY "patch_data" BEGIN
+						"delete_effect" => "match_opcode=>139, match_parameter1=>16233"	// Display string => "*gulp*"
+						"delete_effect2" => "match_opcode=>139, match_parameter1=>35539, when=>%is_iwd%"	// Display string => "*gulp*"
+						"delete_effect3" => "match_opcode=>326, match_parameter1=>%SPLSTATE_POTION_IN_USE%, match_parameter2=>110"	// Apply effects list
+						// Set the POTION_IN_USE spell state
+						"clone_effect" => "match_timing=>0, match_duration_high=>5, opcode=>328, parameter1=>0, parameter2=>%SPLSTATE_POTION_IN_USE%, timing=>9, duration=>0, resist_dispel=>3, special=>1"	// Set spell state => SPLSTATE=POTION_IN_USE
+						// Set the POTION_IN_USE portrait icon
+						"clone_effect2" => "match_opcode=>328, match_parameter2=>%SPLSTATE_POTION_IN_USE%, opcode=>142, parameter2=>%STATDESC_POTION_IN_USE%, special=>0"	// Display portrait icon => POTION_IN_USE
+						// Delete delayed effect(s) => think about those sound effect(s) that are supposed to "say" that potion effects have ended
+						"delete_effect4" => "match_timing=>{3,4}, match_duration_high=>5"	// Play sound
+						// 1% chance of permanent/double effectiveness
+						"alter_effect" => "match_opcode_exclude=>\(20\|119\|159\|200\|201\|218\|223\|226\|227\|228\|259\), match_duration_high=>5, match_timing=>0, timing=>9, duration=>0, resist_dispel=>3"	// Permanent effectiveness (`duration`) => Exclude effects (use "^" and "$" in the regexp so that strings like "206", which contain "20", are correctly handled) that can end prematurely (Invisibility, Stoneskin, Deflection/Reflection/Trap, etc...)
+						// Pay attention to Elven Healing Wine and similar...
+						"alter_effect2" => "match_opcode=>{12,17}, match_parameter1=>0, match_dicenumber=>1, dicesize=>(THIS * 2)"	// Double (+100%) effectiveness (`dicesize`). For instance: `0+1d8` => `0+1d16`
+						"alter_effect3" => "match_opcode=>{12,17}, match_parameter1=>0, match_dicenumber_high=>1, dicenumber=>(THIS * 2)"	// Double (+100%) effectiveness (`dicenumber`). For instance: `0+2d8` => `0+4d8`
+						"alter_effect4" => "match_opcode=>{12,17,159,200,201,218,223,226,227,228,259}, parameter1=>(2 * THIS)"	// Double (+100%) effectiveness (`parameter1`). For instance: `2+XdY` => `4+XdY`
+						// Feedback string
+						"add_effect" => "opcode=>139, target=>1, parameter1=>@2, timing=>1, insert_point=>0"	// Display string
+					END
+				END
+				"instantaneous_scalable" BEGIN
+					ACTION_DEFINE_ASSOCIATIVE_ARRAY "patch_data" BEGIN
+						"delete_effect" => "match_opcode=>139, match_parameter1=>16233"	// Display string => "*gulp*"
+						"delete_effect2" => "match_opcode=>139, match_parameter1=>35539, when=>%is_iwd%"	// Display string => "*gulp*"
+						"delete_effect3" => "match_opcode=>326, match_parameter1=>%SPLSTATE_POTION_IN_USE%, match_parameter2=>110"	// Apply effects list
+						// Set the POTION_IN_USE spell state
+						"add_effect" => "opcode=>328, target=>1, parameter2=>%SPLSTATE_POTION_IN_USE%, duration=>60, special=>1, resist_dispel=>3"	// Set spell state => SPLSTATE=POTION_IN_USE
+						// Set the POTION_IN_USE portrait icon
+						"clone_effect" => "match_opcode=>328, match_parameter2=>%SPLSTATE_POTION_IN_USE%, opcode=>142, parameter2=>%STATDESC_POTION_IN_USE%, special=>0"	// Display portrait icon => POTION_IN_USE
+						// 1% chance of double effectiveness (since they're already permanent)
+						// Pay attention to Elven Healing Wine and similar...
+						"alter_effect" => "match_opcode=>{12,17}, match_parameter1=>0, match_dicenumber=>1, dicesize=>(THIS * 2)"	// Double (+100%) effectiveness (`dicesize`). For instance: `0+1d8` => `0+1d16`
+						"alter_effect2" => "match_opcode=>{12,17}, match_parameter1=>0, match_dicenumber_high=>1, dicenumber=>(THIS * 2)"	// Double (+100%) effectiveness (`dicenumber`). For instance: `0+2d8` => `0+4d8`
+						"alter_effect3" => "match_opcode=>{12,17,159,200,201,218,223,226,227,228,259}, parameter1=>(2 * THIS)"	// Double (+100%) effectiveness (`parameter1`). For instance: `2+XdY` => `4+XdY`
+						// Feedback string
+						"add_effect2" => "opcode=>139, target=>1, parameter1=>@3, timing=>1, insert_point=>0"	// Display string
+					END
+				END
+				DEFAULT
+					FAIL "~%potion_res%~: should not happen"
+			END
+			LAF "EDIT_SPELL"
+			STR_VAR
+				"edits" = "patch_data"
+				"file_list" = "%filename%"
+			END
+		END
+		// Add it to the main potion file (via op326)
+		WITH_SCOPE BEGIN
+			ACTION_DEFINE_ASSOCIATIVE_ARRAY "patch_data" BEGIN
+				"add_effect" => "opcode=>326, target=>1, parameter1=>%SPLSTATE_POTION_IN_USE%, parameter2=>110, timing=>1, probability1=>43, probability2=>43, resource=>%filename%, insert_point=>2"	// Apply effects list
+			END
+			LAF "EDIT_ITEM"
+			STR_VAR
+				"edits" = "patch_data"
+				"file_list" = "%potion_res%"
+			END
+		END
+	END
+END

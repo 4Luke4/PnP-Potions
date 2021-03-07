@@ -1,0 +1,113 @@
+////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////
+//	Clone the specified PRO file and apply the listed patches
+//	Ex.: ~FIREBALL=>EXAMPLE2~ // no white-space characters
+////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////
+
+DEFINE_ACTION_FUNCTION "CLONE_PROJECTILE"
+STR_VAR
+	"idsname" = ""
+	"edits" = ""
+	"editstring" = ""
+	"file_list" = ""
+BEGIN
+	LAUNCH_ACTION_FUNCTION "CLONE_TEMPLATE"
+	STR_VAR
+		"edits"
+		"editstring"
+		"old_new" = "%file_list%"
+		"file_ext" = "PRO"
+	RET
+		"new_resref"
+	END
+	// Symbolic reference
+	ACTION_IF ("%idsname%" STRING_EQUAL_CASE "") BEGIN
+		SILENT
+		ADD_PROJECTILE "override/%new_resref%.pro"
+	END ELSE BEGIN
+		//PRINT "Symbolic name: %idsname%"
+		SILENT
+		ACTION_TO_UPPER "new_resref"
+		LAF "LABEL_PROJECTILE"
+		STR_VAR
+			"resname" = "%new_resref%"
+			"label" = "%idsname%"
+		END
+	END
+END
+
+////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////
+//	Auxiliary functions
+////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////////////
+//	Sets Trap Size (offset 0x204)
+////////////////////////////////////////////////////////////
+
+DEFINE_PATCH_FUNCTION "PRO_trap_size"
+STR_VAR
+	"arguments" = ""
+BEGIN
+	PATCH_IF ("%DEST_EXT%" STRING_EQUAL_CASE "PRO") BEGIN
+		PATCH_MATCH SHORT_AT (0x8) WITH
+			"3" BEGIN
+				PATCH_IF (IS_AN_INT "arguments") BEGIN
+					WRITE_SHORT 0x204 "%arguments%"
+				END ELSE BEGIN
+					PATCH_FAIL "~%DEST_FILE%~: patch function PRO_trap_size takes integer values (you provided ~%arguments%~)"
+				END
+			END
+			DEFAULT
+				PATCH_FAIL "~%DEST_FILE%~, PRO_trap_size: unexpected Projectile type at 0x8"
+		END
+	END ELSE BEGIN
+		PATCH_FAIL "~%DEST_FILE%~, PRO_trap_size: unexpected type of file"
+	END
+END
+
+////////////////////////////////////////////////////////////
+//	Sets Explosion Size (offset 0x206)
+////////////////////////////////////////////////////////////
+
+DEFINE_PATCH_FUNCTION "PRO_explosion_size"
+STR_VAR
+	"arguments" = ""
+BEGIN
+	PATCH_IF ("%DEST_EXT%" STRING_EQUAL_CASE "PRO") BEGIN
+		PATCH_MATCH SHORT_AT (0x8) WITH
+			"3" BEGIN
+				PATCH_IF (IS_AN_INT "arguments") BEGIN
+					WRITE_SHORT 0x206 "%arguments%"
+				END ELSE BEGIN
+					PATCH_FAIL "~%DEST_FILE%~: patch function PRO_explosion_size takes integer values (you provided ~%arguments%~)"
+				END
+			END
+			DEFAULT
+				PATCH_FAIL "~%DEST_FILE%~, PRO_explosion_size: unexpected Projectile type at 0x8"
+		END
+	END ELSE BEGIN
+		PATCH_FAIL "~%DEST_FILE%~, PRO_explosion_size: unexpected type of file"
+	END
+END
+
+////////////////////////////////////////////////////////////
+//	Helper function to set a custom symbolic name for the PRO being patched
+////////////////////////////////////////////////////////////
+
+DEFINE_ACTION_FUNCTION "LABEL_PROJECTILE"
+STR_VAR
+	"label" = ""
+	"resname" = ""
+BEGIN
+	ACTION_IF ("%label%" STRING_EQUAL_CASE "") BEGIN
+		FAIL "LABEL_PROJECTILE, ~%resname%.pro~: no symbolic name specified (but one was expected!)"
+	END ELSE BEGIN
+		ADD_PROJECTILE "override/%resname%.pro"
+		COPY_EXISTING "MISSILE.IDS" "override"
+			REPLACE_TEXTUALLY CASE_SENSITIVE EXACT_MATCH "%resname%" "%label%"
+		BUT_ONLY_IF_IT_CHANGES
+	END
+END

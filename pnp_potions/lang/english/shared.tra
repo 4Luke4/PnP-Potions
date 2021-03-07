@@ -1,0 +1,6 @@
+/// This file is loaded by every component and so should contain strings used by multiple components.
+///
+/// to avoid namespace conflicts, use numbers > 100,000
+
+@100001 = "Oil"
+@100002 = "Under the effects of a potion"

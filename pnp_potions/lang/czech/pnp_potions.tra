@@ -1,0 +1,7 @@
+@0 = "%id_name_string% : Poloviční účinnost"
+@1 = "%id_name_string% : Jedenapůlnásobná účinnost"
+@2 = "%id_name_string% : Trvalá účinnost (dokud není zrušena)"
+@3 = "%id_name_string% : Zdvojnásobená účinnost"
+@4 = "%id_name_string% : Síla a obratnost byly trvale sníženy o 1"
+@5 = "%id_name_string% : Všechny aktivní účinky lektvaru byly odstraněny"
+@6 = "%id_name_string% : Nic se neděje..."

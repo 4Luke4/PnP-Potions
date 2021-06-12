@@ -109,6 +109,12 @@ LANGUAGE
 	~pnp_potions/lang/english/setup.tra~
 	~pnp_potions/lang/hungarian/setup.tra~
 
+LANGUAGE
+	"Česky (Luke)"
+	"czech"
+	~pnp_potions/lang/english/setup.tra~
+	~pnp_potions/lang/czech/setup.tra~
+
 ////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////
 ////	Components start here

@@ -12,7 +12,7 @@ BACKUP ~weidu_external/pnp_potions/backup~
 /////////////////////////////////////////////////////////////////////////////////////////////
 
 SUPPORT ~https://github.com/4Luke4/PnP-Potions/issues~
-VERSION ~v1.1~
+VERSION ~v1.2~
 README ~pnp_potions/doc/readme-pnp_potions.pdf~
 
 AUTO_EVAL_STRINGS
@@ -104,7 +104,7 @@ LANGUAGE
 	~pnp_potions/lang/japanese/setup.tra~
 
 LANGUAGE
-	"Magyar (Luke)"
+	"Magyar (Překlad: GraionDilach)"
 	"hungarian"
 	~pnp_potions/lang/english/setup.tra~
 	~pnp_potions/lang/hungarian/setup.tra~

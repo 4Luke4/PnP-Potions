@@ -3,4 +3,4 @@
 /// to avoid namespace conflicts, use numbers > 100,000
 
 @100001 = "Olaj"
-@100002 = "Egy bájital hatása alatt"
+@100002 = "Bájital hatása alatt"

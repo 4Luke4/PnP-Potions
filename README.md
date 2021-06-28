@@ -1,6 +1,8 @@
 # PnP Potions
 **Author**: Luke
 
+**Discussion:** [Beamdog Forums](https://forums.beamdog.com/discussion/82300/)
+
 ## Overview
 *This mod is meant to implement PnP potion behavior.*
 ## Contents

@@ -57,10 +57,16 @@ BEGIN
 			"trap_size" => "80"	// 16 = 1 foot
 			"explosion_size" => "80"	// 16 = 1 foot
 		END
+		ACTION_IF (GAME_IS "iwdee") BEGIN
+			OUTER_TEXT_SPRINT "pro_res" "IDPRO335"
+		END
+		ACTION_IF (GAME_IS "bgee bg2ee") BEGIN
+			OUTER_TEXT_SPRINT "pro_res" "FIREBALL"
+		END
 		LAF "CLONE_PROJECTILE"
 		STR_VAR
 			"edits" = "patch_data"
-			"file_list" = "FIREBALL=>GTFIRE05"
+			"file_list" = "%pro_res% => GTFIRE05"
 			"idsname" = "Fireball_5_ft_Radius"
 		END
 	END

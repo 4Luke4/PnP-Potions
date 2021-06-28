@@ -171,9 +171,7 @@ STR_VAR
 RET
 	"new_resref"
 BEGIN
-	ACTION_IF (("%old_new%" STRING_MATCHES_REGEXP "^[^ %NL%%TAB%]+=>[^ %NL%%TAB%]+$") == 0) BEGIN
-		// Ex.: "BANDIT=>EXAMPLE"
-
+	ACTION_IF (("%old_new%" STRING_MATCHES_REGEXP "^[^ %NL%%TAB%]+ => [^ %NL%%TAB%]+$") == 0) BEGIN
 		// Get "%old%" and "%new%" resrefs
 		LAF "RETURN_KEY_VALUE"
 		STR_VAR
@@ -222,7 +220,7 @@ BEGIN
 			PRINT "CLONE_TEMPLATE: file ~%new_resref%.%file_ext%~ already present, skipping..."
 		END
 	END ELSE BEGIN
-		FAIL "CLONE_TEMPLATE: string ~%old_new%~ appears to be malformed. Please stick to the following template: ~SW1H01=><modder_prefix>SW1H01~"
+		FAIL "CLONE_TEMPLATE: string ~%old_new%~ appears to be malformed. Please stick to the following template: ~SW1H01 => GTSW1H01~"
 	END
 END
 

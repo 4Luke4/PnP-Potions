@@ -173,12 +173,12 @@ RET
 BEGIN
 	ACTION_IF (("%old_new%" STRING_MATCHES_REGEXP "^[^ %NL%%TAB%]+ => [^ %NL%%TAB%]+$") == 0) BEGIN
 		// Get "%old%" and "%new%" resrefs
-		LAF "RETURN_KEY_VALUE"
-		STR_VAR
-			"list" = "%old_new%"
-		RET
-			"old_resref" = "key"
-			"new_resref" = "value"
+		OUTER_PATCH "%old_new%" BEGIN
+			REPLACE_EVALUATE CASE_INSENSITIVE "\(^[^ %NL%%TAB%]+\) => \([^ %NL%%TAB%]+$\)" BEGIN
+				TEXT_SPRINT "old_resref" "%MATCH1%"
+				TEXT_SPRINT "new_resref" "%MATCH2%"
+			END
+			""
 		END
 		PRINT ~LFO: Cloning %file_ext% file "%old_new%" and applying patch(es)...~
 		SILENT

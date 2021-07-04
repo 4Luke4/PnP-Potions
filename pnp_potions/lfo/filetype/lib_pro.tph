@@ -9,13 +9,11 @@ DEFINE_ACTION_FUNCTION "CLONE_PROJECTILE"
 STR_VAR
 	"idsname" = ""
 	"edits" = ""
-	"editstring" = ""
 	"file_list" = ""
 BEGIN
 	LAUNCH_ACTION_FUNCTION "CLONE_TEMPLATE"
 	STR_VAR
 		"edits"
-		"editstring"
 		"old_new" = "%file_list%"
 		"file_ext" = "PRO"
 	RET

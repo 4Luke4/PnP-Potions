@@ -19,12 +19,8 @@ BEGIN
 					SET "___#type" = 1	// Melee
 					SET "___#location" = 4	// Ability
 					SET "___#target" = 1	// Living actor
-					PATCH_FOR_EACH "default_var" IN
-						"___#target_count"
-						"___#range"
-					BEGIN
-						SET "%default_var%" = 0
-					END
+					SET "___#target_count" = 0
+					SET "___#range" = 0
 					SET "___#projectile" = 1	// We cannot use IDS_OF_SYMBOL (~MISSILE~ ~None~) for the time being – See here for further details => https://github.com/WeiDUorg/weidu/issues/188#issuecomment-817908746
 					SET "___#insert_point" = "-1"	// Last
 					SET "___#copy_header" = 0	// Unused for the time being...

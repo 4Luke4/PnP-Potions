@@ -62,6 +62,46 @@ END
 ////////////////////////////////////////////////////////////////////////
 
 /**
+* Adds a new entry to "MSECTYPE.2DA" with no associated string
+**/
+
+DEFINE_ACTION_FUNCTION "ADD_SILENT_SECTYPE"
+STR_VAR
+	"identifier" = ""
+RET
+	"value"
+BEGIN
+	// Initialize
+	OUTER_SET "value" = "-1"
+	// Sanity check
+	ACTION_IF ("%identifier%" STRING_COMPARE_CASE "") BEGIN
+		ADD_SECTYPE "%identifier%" ""
+		OUTER_SET "value" = "%identifier%"
+		// Replace the empty string with "No such index" (i.e., a non-existing string)
+		SILENT
+		COPY_EXISTING "MSECTYPE.2DA" "override"
+			READ_2DA_ENTRIES_NOW "read_msectype" 0
+			FOR ("i" = 4; "%i%" < "%read_msectype%"; "i" += 1) BEGIN	// Skip header rows and "None", start from "SpellProtections"
+				READ_2DA_ENTRY_FORMER "read_msectype" "%i%" 0 "current_identifier"
+				PATCH_IF ("%current_identifier%" STRING_EQUAL_CASE "%identifier%") BEGIN
+					SET_2DA_ENTRY "%i%" 1 0 "-1"
+					SET "i" = "%read_msectype%"	// Kill FOR-loop
+				END
+			END
+			// Formatting
+			PRETTY_PRINT_2DA
+		BUT_ONLY_IF_IT_CHANGES
+		VERBOSE
+	END ELSE BEGIN
+		FAIL "ADD_SILENT_SECTYPE: ~identifier~ has not been specified"
+	END
+END
+
+////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////
+
+/**
 * Adds a new entry to a specified IDS file and returns its IDS value.
 * 
 * INT_VAR "minValue"       Minimum IDS value to consider. (Default: 0)

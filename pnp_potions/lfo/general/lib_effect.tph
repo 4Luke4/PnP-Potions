@@ -15,19 +15,15 @@ BEGIN
 				// Set default values
 				// INT_VAR
 				SET "___#header_target" = "-1"	// Add your effect(s) only on a matching header (checks `Target` @ 0xC)
-				PATCH_FOR_EACH "default_var" IN
-					"___#header"
-					"___#opcode"
-					"___#power"
-					"___#timing"
-					"___#resist_dispel"
-					"___#probability2"
-					"___#dicenumber"
-					"___#dicesize"
-					"___#savebonus"
-				BEGIN
-					SET "%default_var%" = 0
-				END
+				SET "___#header" = 0
+				SET "___#opcode" = 0
+				SET "___#power" = 0
+				SET "___#timing" = 0
+				SET "___#resist_dispel" = 0
+				SET "___#probability2" = 0
+				SET "___#dicenumber" = 0
+				SET "___#dicesize" = 0
+				SET "___#savebonus" = 0
 				SET "___#target" = 2	// Projectile target
 				SET "___#type" = 99	// All header types
 				SET "___#probability1" = 100	// Probability1
@@ -35,15 +31,11 @@ BEGIN
 				// STR_VAR
 				TEXT_SPRINT "___#resource" ""	// Empty
 				// These can take literal expressions
-				PATCH_FOR_EACH "default_var" IN
-					"___#parameter1"
-					"___#parameter2"
-					"___#duration"
-					"___#savetype"
-					"___#special"
-				BEGIN
-					TEXT_SPRINT "%default_var%" "0"
-				END
+				TEXT_SPRINT "___#parameter1" "0"
+				TEXT_SPRINT "___#parameter2" "0"
+				TEXT_SPRINT "___#duration" "0"
+				TEXT_SPRINT "___#savetype" "0"
+				TEXT_SPRINT "___#special" "0"
 				// Overwrite default values if specified
 				WHILE ("%arguments%" STRING_COMPARE_CASE "") BEGIN
 					LPF "RETURN_FIRST_ENTRY"
@@ -97,33 +89,25 @@ BEGIN
 			PATCH_IF (("%arguments%" STRING_MATCHES_REGEXP "^opcode=>[^%NL%%TAB%]+\(, [^ ,{}%NL%%TAB%]+=>[^%NL%%TAB%]+\)*$") == 0) BEGIN
 				// Set default values
 				// INT_VAR
-				PATCH_FOR_EACH "default_var" IN
-					"___#header"
-					"___#power"
-					"___#probability2"
-					"___#timing"
-					"___#resist_dispel"
-					"___#dicenumber"
-					"___#dicesize"
-					"___#savebonus"
-				BEGIN
-					SET "%default_var%" = 0
-				END
+				SET "___#header" = 0
+				SET "___#power" = 0
+				SET "___#probability2" = 0
+				SET "___#timing" = 0
+				SET "___#resist_dispel" = 0
+				SET "___#dicenumber" = 0
+				SET "___#dicesize" = 0
+				SET "___#savebonus" = 0
 				SET "___#target" = 2	// Projectile target
 				SET "___#probability1" = 100	// Probability1
 				SET "___#insert_point" = "-1"	// Last
 				// STR_VAR
 				TEXT_SPRINT "___#resource" ""	// Empty
 				// These can take literal expressions
-				PATCH_FOR_EACH "default_var" IN
-					"___#parameter1"
-					"___#parameter2"
-					"___#duration"
-					"___#savetype"
-					"___#special"
-				BEGIN
-					TEXT_SPRINT "%default_var%" "0"
-				END
+				TEXT_SPRINT "___#parameter1" "0"
+				TEXT_SPRINT "___#parameter2" "0"
+				TEXT_SPRINT "___#duration" "0"
+				TEXT_SPRINT "___#savetype" "0"
+				TEXT_SPRINT "___#special" "0"
 				// Extra condition(s)
 				TEXT_SPRINT "___#when" "1"	// True (non-zero)
 				// Overwrite default values if needed

@@ -10,7 +10,6 @@ INT_VAR
 	"allow_missing" = 0
 STR_VAR
 	"edits" = ""
-	"editstring" = ""
 	"file_list" = ""
 BEGIN
 	LAUNCH_ACTION_FUNCTION "EDIT_TEMPLATE"
@@ -18,7 +17,6 @@ BEGIN
 		"allow_missing"
 	STR_VAR
 		"edits"
-		"editstring"
 		"file_list"
 		"file_ext" = "SPL"
 	END
@@ -34,13 +32,11 @@ END
 DEFINE_ACTION_FUNCTION "MAKE_SPELL"
 STR_VAR
 	"edits" = ""
-	"editstring" = ""
 	"filename" = ""
 BEGIN
 	LAUNCH_ACTION_FUNCTION "MAKE_TEMPLATE"
 	STR_VAR
 		"edits"
-		"editstring"
 		"filename"
 		"file_ext" = "SPL"
 	END
@@ -98,5 +94,24 @@ BEGIN
 		WRITE_ASCIIE 0x3A "%arguments%" #8
 	END ELSE BEGIN
 		PATCH_FAIL "~%DEST_FILE%~, SPL_spellbook_icon: unexpected type of file"
+	END
+END
+
+////////////////////////////////////////////////////////////
+//	Sets Secondary type (offset 0x27)
+////////////////////////////////////////////////////////////
+
+DEFINE_PATCH_FUNCTION "SPL_secondary_type"
+STR_VAR
+	"arguments" = ""
+BEGIN
+	PATCH_IF ("%DEST_EXT%" STRING_EQUAL_CASE "SPL") BEGIN
+		PATCH_IF (IS_AN_INT "arguments") BEGIN
+			WRITE_BYTE 0x27 "%arguments%"
+		END ELSE BEGIN
+			PATCH_FAIL "~%DEST_FILE%~: patch function SPL_secondary_type takes integer values (you provided ~%arguments%~)"
+		END
+	END ELSE BEGIN
+		PATCH_FAIL "~%DEST_FILE%~, SPL_secondary_type: unexpected type of file"
 	END
 END

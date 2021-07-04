@@ -7,14 +7,13 @@
 DEFINE_ACTION_FUNCTION "MAKE_TEMPLATE"
 STR_VAR
 	"edits" = ""
-	"editstring" = ""
 	"filename" = ""
 	"file_ext" = ""
 BEGIN
 	ACTION_IF (("%filename%" STRING_MATCHES_REGEXP "^[^ %NL%%TAB%]+$") == 0) BEGIN
 		// Ex.: "GTTEST"
 		ACTION_IF !(FILE_EXISTS_IN_GAME "%filename%.%file_ext%") BEGIN
-			PRINT ~LFO: Creating %file_ext% file "%filename%" and applying patch(es)...~
+			PRINT ~LFO: Creating %file_ext% file "%filename%" and applying patch(es) ...~
 			SILENT
 			// Set base structure
 			ACTION_MATCH "%file_ext%" WITH
@@ -66,14 +65,6 @@ BEGIN
 					FAIL "CREATE_TEMPLATE: unknown file extension ~%file_ext%~"
 			END
 			// Apply the specified edits (if any, of course)
-			ACTION_IF ("%editstring%" STRING_COMPARE_CASE "") BEGIN
-				COPY_EXISTING "%filename%.%file_ext%" "override"
-					LPF "APPLY_PATCHES_INLINE"
-					STR_VAR
-						"editstring"
-					END
-				BUT_ONLY_IF_IT_CHANGES
-			END
 			ACTION_IF ("%edits%" STRING_COMPARE_CASE "") BEGIN
 				COPY_EXISTING "%filename%.%file_ext%" "override"
 					LPF "APPLY_PATCHES"
@@ -82,9 +73,9 @@ BEGIN
 					END
 				BUT_ONLY_IF_IT_CHANGES
 			END
-			PRINT "...done"
+			PRINT "... done"
 		END ELSE BEGIN
-			PRINT "MAKE_TEMPLATE: file ~%filename%.%file_ext%~ already present, skipping..."
+			PRINT "MAKE_TEMPLATE: file ~%filename%.%file_ext%~ already present, skipping ..."
 		END
 	END ELSE BEGIN
 		FAIL "MAKE_TEMPLATE: string ~%filename%~ appears to be malformed. Please stick to the following template: ~EXAMPLE~"
@@ -102,7 +93,6 @@ INT_VAR
 	"allow_missing" = 0
 STR_VAR
 	"edits" = ""
-	"editstring" = ""
 	"file_list" = ""
 	"file_ext" = ""
 BEGIN
@@ -114,7 +104,7 @@ BEGIN
 		END
 		// Main – Loop through all files that do exist!
 		ACTION_IF ("%file_list%" STRING_COMPARE_CASE "") BEGIN
-			PRINT ~LFO: Editing %file_ext% file(s) "%file_list%" and applying patch(es)...~
+			PRINT ~LFO: Editing %file_ext% file(s) "%file_list%" and applying patch(es) ...~
 			SILENT
 			// Main
 			OUTER_WHILE ("%file_list%" STRING_COMPARE_CASE "") BEGIN
@@ -126,17 +116,6 @@ BEGIN
 					"entry"
 				END
 				// Apply the specified edits (if any, of course)
-				ACTION_IF ("%editstring%" STRING_COMPARE_CASE "") BEGIN
-					COPY_EXISTING "%entry%.%file_ext%" "override"
-						PATCH_IF ("%DEST_EXT%" STRING_EQUAL_CASE "CRE") BEGIN
-							LPF "FJ_CRE_VALIDITY" END
-						END
-						LPF "APPLY_PATCHES_INLINE"
-						STR_VAR
-							"editstring"
-						END
-					BUT_ONLY_IF_IT_CHANGES
-				END
 				ACTION_IF ("%edits%" STRING_COMPARE_CASE "") BEGIN
 					COPY_EXISTING "%entry%.%file_ext%" "override"
 						PATCH_IF ("%DEST_EXT%" STRING_EQUAL_CASE "CRE") BEGIN
@@ -149,7 +128,7 @@ BEGIN
 					BUT_ONLY_IF_IT_CHANGES
 				END
 			END
-			PRINT "...done"
+			PRINT "... done"
 		END
 	END ELSE BEGIN
 		FAIL "EDIT_TEMPLATE: string ~%file_list%~ appears to be malformed. Please stick to the following template: ~EXAMPLE, EXAMPLE2~"
@@ -165,7 +144,6 @@ END
 DEFINE_ACTION_FUNCTION "CLONE_TEMPLATE"
 STR_VAR
 	"edits" = ""
-	"editstring" = ""
 	"old_new" = ""
 	"file_ext" = ""
 RET
@@ -180,30 +158,18 @@ BEGIN
 			END
 			""
 		END
-		PRINT ~LFO: Cloning %file_ext% file "%old_new%" and applying patch(es)...~
-		SILENT
-
-		// Make sure original file does exist!
+		// Make sure ~%old_resref%~ (original file) does exist!
 		ACTION_IF (FILE_EXISTS_IN_GAME "%old_resref%.%file_ext%") BEGIN
 		END ELSE BEGIN
 			FAIL "CLONE_TEMPLATE cannot clone the non-existing file ~%old_resref%.%file_ext%~"
 		END
-
+		// Main
 		ACTION_IF !(FILE_EXISTS_IN_GAME "%new_resref%.%file_ext%") BEGIN
+			PRINT ~LFO: Cloning %file_ext% file "%old_new%" and applying patch(es) ...~
+			SILENT
 			ACTION_TO_LOWER "new_resref"
 			ACTION_TO_LOWER "file_ext"
 			// Apply the specified edits (if any, of course)
-			ACTION_IF ("%editstring%" STRING_COMPARE_CASE "") BEGIN
-				COPY_EXISTING "%old_resref%.%file_ext%" "override/%new_resref%.%file_ext%"
-					PATCH_IF ("%DEST_EXT%" STRING_EQUAL_CASE "CRE") BEGIN
-						LPF "FJ_CRE_VALIDITY" END
-					END
-					LPF "APPLY_PATCHES_INLINE"
-					STR_VAR
-						"editstring"
-					END
-				//BUT_ONLY_IF_IT_CHANGES // We want a clone regardless (think about just renaming a file...)
-			END
 			ACTION_IF ("%edits%" STRING_COMPARE_CASE "") BEGIN
 				COPY_EXISTING "%old_resref%.%file_ext%" "override/%new_resref%.%file_ext%"
 					PATCH_IF ("%DEST_EXT%" STRING_EQUAL_CASE "CRE") BEGIN
@@ -215,9 +181,9 @@ BEGIN
 					END
 				//BUT_ONLY_IF_IT_CHANGES // We want a clone regardless (think about just renaming a file...)
 			END
-			PRINT "...done"
+			PRINT "... done"
 		END ELSE BEGIN
-			PRINT "CLONE_TEMPLATE: file ~%new_resref%.%file_ext%~ already present, skipping..."
+			PRINT "CLONE_TEMPLATE: file ~%new_resref%.%file_ext%~ already present, skipping ..."
 		END
 	END ELSE BEGIN
 		FAIL "CLONE_TEMPLATE: string ~%old_new%~ appears to be malformed. Please stick to the following template: ~SW1H01 => GTSW1H01~"

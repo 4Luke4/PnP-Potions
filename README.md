@@ -1,4 +1,26 @@
-# PnP Potions
+<!---
+Shields.io Github badges!
+-->
+
+![GitHub release (latest by date)](https://img.shields.io/github/v/release/4Luke4/PnP-Potions?color=yellow&style=flat)
+![GitHub (Pre-)Release Date](https://img.shields.io/github/release-date-pre/4Luke4/PnP-Potions?color=yellow&style=flat)
+![Platform](https://img.shields.io/static/v1?label=platform&message=windows%20%7C%20macOS%20%7C%20linux%20%7C%20Project%20Infinity&color=informational&style=flat)
+![Language](https://img.shields.io/static/v1?label=language&message=English%20%7C%20Italian%20%7C%20French%20%7C%20German%20%7C%20Spanish%20%7C%20Simplified%20Chinese%20%7C%20Russian%20%7C%20Polish%20%7C%20Portuguese%20%7C%20Japanese%20%7C%20Hungarian%20%7C%20Czech&color=teal&style=flat)
+![Supported games](https://img.shields.io/static/v1?label=supported%20games&message=BG%3AEE%20%7C%20BG2%3AEE%20%7C%20IWD%3AEE%20%7C%20EET&color=dodgerblue&style=flat)
+
+![GitHub repo size](https://img.shields.io/github/repo-size/4Luke4/Pnp-Potions?style=flat)
+![GitHub all releases](https://img.shields.io/github/downloads/4Luke4/PnP-Potions/total?color=cyan&style=flat)
+![GitHub release (latest by date)](https://img.shields.io/github/downloads/4Luke4/PnP-Potions/latest/total?color=cyan&style=flat)
+![Maintenance](https://img.shields.io/static/v1?label=maintained%3F&message=yes&color=greenlight&style=flat)
+![GitHub contributors](https://img.shields.io/github/contributors/4Luke4/PnP-Potions?color=blueviolet&style=flat) [![Contributors Display](https://badges.pufler.dev/contributors/4Luke4/PnP-Potions?size=30&padding=5&bots=true)](https://badges.pufler.dev)
+
+![GitHub issues](https://img.shields.io/github/issues/4Luke4/PnP-Potions?color=red&style=flat)
+![GitHub pull requests](https://img.shields.io/github/issues-pr/4Luke4/PnP-Potions?color=brown&style=flat)
+
+##
+
+<div align="center"><h1></a>PnP Potions</h1></div>
+
 **Author**: Luke
 
 **Discussion:** [Beamdog Forums](https://forums.beamdog.com/discussion/82300/)

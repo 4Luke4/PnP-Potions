@@ -12,7 +12,7 @@ BACKUP ~weidu_external/pnp_potions/backup~
 /////////////////////////////////////////////////////////////////////////////////////////////
 
 SUPPORT ~https://github.com/4Luke4/PnP-Potions/issues~
-VERSION ~v1.2.1~
+VERSION ~v1.2.2~
 README ~pnp_potions/doc/readme-pnp_potions.pdf~
 
 AUTO_EVAL_STRINGS
@@ -122,7 +122,8 @@ LANGUAGE
 ////////////////////////////////////////////////////////////////////
 
 BEGIN @1000000
-	REQUIRE_PREDICATE ((GAME_IS ~bgee bg2ee iwdee~) AND (FILE_EXISTS "engine.lua")) @0
+	LABEL "Luke-PnP-Potions-Main"
+	REQUIRE_PREDICATE ((GAME_IS ~bgee bg2ee iwdee eet~) AND (FILE_EXISTS "engine.lua")) @0
 
 	//ACTION_TIME "pnp_potions" BEGIN
 		LAUNCH_ACTION_FUNCTION "RUN"

@@ -13,9 +13,20 @@ BEGIN
 	LAF "ADD_IDS_ENTRY"
 	STR_VAR
 		"idsFile" = "SPLSTATE"
-		"identifier" = "POTION_IN_USE"
+		"identifier" = "GT_UNDER_THE_EFFECTS_OF_A_POTION"
 	RET
 		"SPLSTATE_POTION_IN_USE" = "value"
+	END
+
+	///////////////////////////////////////////////////////////////////////////////////////
+	// Add a new secondary type
+	///////////////////////////////////////////////////////////////////////////////////////
+
+	LAF "ADD_SILENT_SECTYPE"
+	STR_VAR
+		"identifier" = "GT_PotionEffects"
+	RET
+		"MSECTYPE_POTION_EFFECTS" = "value"
 	END
 
 	///////////////////////////////////////////////////////////////////////////////////////
@@ -60,7 +71,7 @@ BEGIN
 		ACTION_IF (GAME_IS "iwdee") BEGIN
 			OUTER_TEXT_SPRINT "pro_res" "IDPRO335"
 		END
-		ACTION_IF (GAME_IS "bgee bg2ee") BEGIN
+		ACTION_IF (GAME_IS "bgee bg2ee eet") BEGIN
 			OUTER_TEXT_SPRINT "pro_res" "FIREBALL"
 		END
 		LAF "CLONE_PROJECTILE"
@@ -147,6 +158,7 @@ BEGIN
 			// Extended header(s)
 			"add_ability" => "range=>32767"
 			// Feature block(s)
+			"add_effect" => "opcode=>221, timing=>1, parameter1=>9, parameter2=>%MSECTYPE_POTION_EFFECTS%"	// Remove spell type protections => Maximum level: 9
 		END
 		LAF "MAKE_SPELL"
 		STR_VAR
@@ -431,7 +443,7 @@ BEGIN
 			ACTION_MATCH "%potion_type%" WITH
 				"temporary" BEGIN
 					// Include it into "removal_res"
-					WITH_SCOPE BEGIN
+					/*WITH_SCOPE BEGIN
 						ACTION_DEFINE_ASSOCIATIVE_ARRAY "patch_data" BEGIN
 							"clone_effect" => "match_resource=>%potion_res%, resource=>%filename%, insert=>below"	// Remove effects by resource
 						END
@@ -440,9 +452,12 @@ BEGIN
 							"edits" = "patch_data"
 							"file_list" = "GTPOTN#3"
 						END
-					END
+					END*/
 					// Implement half effectiveness
 					ACTION_DEFINE_ASSOCIATIVE_ARRAY "patch_data" BEGIN
+						// Header
+						"secondary_type" => "%MSECTYPE_POTION_EFFECTS%"
+						// Feature block(s)
 						"delete_effect" => "match_opcode=>139, match_parameter1=>16233"	// Display string => "*gulp*"
 						"delete_effect2" => "match_opcode=>139, match_parameter1=>35539, when=>%is_iwd%"	// Display string => "*gulp*"
 						// Set the POTION_IN_USE spell state
@@ -551,7 +566,7 @@ BEGIN
 			ACTION_MATCH "%potion_type%" WITH
 				"temporary" BEGIN
 					// Include it into "removal_res"
-					WITH_SCOPE BEGIN
+					/*WITH_SCOPE BEGIN
 						ACTION_DEFINE_ASSOCIATIVE_ARRAY "patch_data" BEGIN
 							"clone_effect" => "match_resource=>%potion_res%, resource=>%filename%, insert=>below"	// Remove effects by resource
 						END
@@ -560,9 +575,12 @@ BEGIN
 							"edits" = "patch_data"
 							"file_list" = "GTPOTN#3"
 						END
-					END
+					END*/
 					// Implement +50% effectiveness
 					ACTION_DEFINE_ASSOCIATIVE_ARRAY "patch_data" BEGIN
+						// Header
+						"secondary_type" => "%MSECTYPE_POTION_EFFECTS%"
+						// Feature block(s)
 						"delete_effect" => "match_opcode=>139, match_parameter1=>16233"	// Display string => "*gulp*"
 						"delete_effect2" => "match_opcode=>139, match_parameter1=>35539, when=>%is_iwd%"	// Display string => "*gulp*"
 						"delete_effect3" => "match_opcode=>326, match_parameter1=>%SPLSTATE_POTION_IN_USE%, match_parameter2=>110"	// Apply effects list

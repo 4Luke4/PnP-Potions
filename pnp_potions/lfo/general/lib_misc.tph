@@ -25,32 +25,24 @@ BEGIN
 					SET "___#verbose" = 0
 					SET "___#silent" = 1
 					// variables for finding the effect to match
-					PATCH_FOR_EACH "default_var" IN
-						"___#match_opcode"
-						"___#match_target"
-						"___#match_power"
-						"___#match_parameter1"
-						"___#match_parameter2"
-						"___#match_timing"
-						"___#match_resist_dispel"
-						"___#match_duration"
-						"___#match_duration_high"
-						"___#match_probability1"
-						"___#match_probability2"
-						"___#match_dicenumber"
-						"___#match_dicesize"
-						"___#match_savetype"
-						"___#match_special"
-					BEGIN
-						SET "%default_var%" = "-1"
-					END
+					SET "___#match_opcode" = "-1"
+					SET "___#match_target" = "-1"
+					SET "___#match_power" = "-1"
+					SET "___#match_parameter1" = "-1"
+					SET "___#match_parameter2" = "-1"
+					SET "___#match_timing" = "-1"
+					SET "___#match_resist_dispel" = "-1"
+					SET "___#match_duration" = "-1"
+					SET "___#match_duration_high" = "-1"
+					SET "___#match_probability1" = "-1"
+					SET "___#match_probability2" = "-1"
+					SET "___#match_dicenumber" = "-1"
+					SET "___#match_dicesize" = "-1"
+					SET "___#match_savetype" = "-1"
+					SET "___#match_special" = "-1"
 					SET "___#match_savebonus" = "-11"
 					// STR_VAR
-					PATCH_FOR_EACH "default_var" IN
-						"___#match_resource"
-					BEGIN
-						TEXT_SPRINT "%default_var%" "SAME"
-					END
+					TEXT_SPRINT "___#match_resource" "SAME"
 					TEXT_SPRINT "___#when" "1"	// Extra condition(s)
 					// Overwrite default values (if needed!)
 					PATCH_IF ("%arguments%" STRING_COMPARE_CASE "default") BEGIN
@@ -167,53 +159,41 @@ BEGIN
 					SET "___#verbose" = 0
 					SET "___#silent" = 1
 					// variables for finding the effect to match
-					PATCH_FOR_EACH "default_var" IN
-						"___#match_opcode"
-						"___#match_target"
-						"___#match_power"
-						"___#match_parameter1"
-						"___#match_parameter2"
-						"___#match_timing"
-						"___#match_resist_dispel"
-						"___#match_duration"
-						"___#match_duration_high"
-						"___#match_probability1"
-						"___#match_probability2"
-						"___#match_dicenumber"
-						"___#match_dicesize"
-						"___#match_savetype"
-						"___#match_special"
-					BEGIN
-						SET "%default_var%" = "-1"
-					END
+					SET "___#match_opcode" = "-1"
+					SET "___#match_target" = "-1"
+					SET "___#match_power" = "-1"
+					SET "___#match_parameter1" = "-1"
+					SET "___#match_parameter2" = "-1"
+					SET "___#match_timing" = "-1"
+					SET "___#match_resist_dispel" = "-1"
+					SET "___#match_duration" = "-1"
+					SET "___#match_duration_high" = "-1"
+					SET "___#match_probability1" = "-1"
+					SET "___#match_probability2" = "-1"
+					SET "___#match_dicenumber" = "-1"
+					SET "___#match_dicesize" = "-1"
+					SET "___#match_savetype" = "-1"
+					SET "___#match_special" = "-1"
 					SET "___#match_savebonus" = "-11"
 					// variables for the new effect
-					PATCH_FOR_EACH "default_var" IN
-						"___#opcode"
-						"___#power"
-						"___#target"
-						"___#timing"
-						"___#resist_dispel"
-						"___#probability1"
-						"___#probability2"
-						"___#dicenumber"
-						"___#dicesize"
-					BEGIN
-						SET "%default_var%" = "-1"
-					END
+					SET "___#opcode" = "-1"
+					SET "___#power" = "-1"
+					SET "___#target" = "-1"
+					SET "___#timing" = "-1"
+					SET "___#resist_dispel" = "-1"
+					SET "___#probability1" = "-1"
+					SET "___#probability2" = "-1"
+					SET "___#dicenumber" = "-1"
+					SET "___#dicesize" = "-1"
 					SET "___#savebonus" = "-11"
 					// STR_VAR
-					PATCH_FOR_EACH "default_var" IN
-						"___#parameter1"
-						"___#parameter2"
-						"___#duration"
-						"___#savetype"
-						"___#special"
-						"___#match_resource"
-						"___#resource"
-					BEGIN
-						TEXT_SPRINT "%default_var%" "SAME"
-					END
+					TEXT_SPRINT "___#parameter1" "SAME"
+					TEXT_SPRINT "___#parameter2" "SAME"
+					TEXT_SPRINT "___#duration" "SAME"
+					TEXT_SPRINT "___#savetype" "SAME"
+					TEXT_SPRINT "___#special" "SAME"
+					TEXT_SPRINT "___#match_resource" "SAME"
+					TEXT_SPRINT "___#resource" "SAME"
 					TEXT_SPRINT "___#insert" "above"
 					// Overwrite default values (if needed!)
 					WHILE ("%arguments%" STRING_COMPARE_CASE "") BEGIN
@@ -304,55 +284,43 @@ BEGIN
 					SET "___#verbose" = 0
 					SET "___#silent" = 1
 					// variables for finding the effect to match
-					PATCH_FOR_EACH "default_var" IN
-						"___#match_opcode"	// to the opcode of effects to be matched
-						"___#match_target"
-						"___#match_power"
-						"___#match_parameter1"
-						"___#match_parameter2"
-						"___#match_timing"
-						"___#match_resist_dispel"
-						"___#match_duration"
-						"___#match_duration_high"
-						"___#match_probability1"
-						"___#match_probability2"
-						"___#match_dicenumber"
-						"___#match_dicenumber_high"
-						"___#match_dicesize"
-						"___#match_savetype"
-						"___#match_special"
-					BEGIN
-						SET "%default_var%" = "-1"
-					END
+					TEXT_SPRINT "___#match_opcode_exclude" "none"	// Regexp allowed
+					SET "___#match_opcode" = "-1"
+					SET "___#match_target" = "-1"
+					SET "___#match_power" = "-1"
+					SET "___#match_parameter1" = "-1"
+					SET "___#match_parameter2" = "-1"
+					SET "___#match_timing" = "-1"
+					SET "___#match_resist_dispel" = "-1"
+					SET "___#match_duration" = "-1"
+					SET "___#match_duration_high" = "-1"
+					SET "___#match_probability1" = "-1"
+					SET "___#match_probability2" = "-1"
+					SET "___#match_dicenumber" = "-1"
+					SET "___#match_dicenumber_high" = "-1"
+					SET "___#match_dicesize" = "-1"
+					SET "___#match_savetype" = "-1"
+					SET "___#match_special" = "-1"
 					SET "___#match_savebonus" = "-11"
 					// variables for the new effect
-					PATCH_FOR_EACH "default_var" IN
-						"___#opcode"
-						"___#power"
-						"___#target"
-						"___#timing"
-						"___#resist_dispel"
-						"___#probability1"
-						"___#probability2"
-					BEGIN
-						SET "%default_var%" = "-1"
-					END
+					SET "___#opcode" = "-1"
+					SET "___#power" = "-1"
+					SET "___#target" = "-1"
+					SET "___#timing" = "-1"
+					SET "___#resist_dispel" = "-1"
+					SET "___#probability1" = "-1"
+					SET "___#probability2" = "-1"
 					SET "___#savebonus" = "-11"
 					// STR_VAR
-					PATCH_FOR_EACH "default_var" IN
-						"___#parameter1"
-						"___#parameter2"
-						"___#duration"
-						"___#dicenumber"
-						"___#dicesize"
-						"___#savetype"
-						"___#special"
-						"___#match_resource"
-						"___#resource"
-					BEGIN
-						TEXT_SPRINT "%default_var%" "SAME"
-					END
-					TEXT_SPRINT "___#match_opcode_exclude" "none"	// Regexp allowed
+					TEXT_SPRINT "___#parameter1" "SAME"
+					TEXT_SPRINT "___#parameter2" "SAME"
+					TEXT_SPRINT "___#duration" "SAME"
+					TEXT_SPRINT "___#dicenumber" "SAME"
+					TEXT_SPRINT "___#dicesize" "SAME"
+					TEXT_SPRINT "___#savetype" "SAME"
+					TEXT_SPRINT "___#special" "SAME"
+					TEXT_SPRINT "___#match_resource" "SAME"
+					TEXT_SPRINT "___#resource" "SAME"
 					// Overwrite default values (if needed!)
 					WHILE ("%arguments%" STRING_COMPARE_CASE "") BEGIN
 						LPF "RETURN_FIRST_ENTRY"

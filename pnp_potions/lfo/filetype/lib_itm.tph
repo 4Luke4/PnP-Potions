@@ -10,7 +10,6 @@ INT_VAR
 	"allow_missing" = 0
 STR_VAR
 	"edits" = ""
-	"editstring" = ""
 	"file_list" = ""
 BEGIN
 	LAUNCH_ACTION_FUNCTION "EDIT_TEMPLATE"
@@ -18,7 +17,6 @@ BEGIN
 		"allow_missing"
 	STR_VAR
 		"edits"
-		"editstring"
 		"file_list"
 		"file_ext" = "ITM"
 	END

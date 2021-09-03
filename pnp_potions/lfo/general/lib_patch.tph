@@ -17,46 +17,8 @@ BEGIN
 			SILENT
 			// Set base structure
 			ACTION_MATCH "%file_ext%" WITH
-				"ITM" BEGIN
-					LAF "CREATE_ITM_FILE"
-					STR_VAR
-						"filename"
-					END
-				END
 				"SPL" BEGIN
 					LAF "CREATE_SPL_FILE"
-					STR_VAR
-						"filename"
-					END
-				END
-				"CRE" BEGIN
-					LAF "CREATE_CRE_FILE"
-					STR_VAR
-						"filename"
-					END
-				END
-				"PRO" BEGIN
-					LAF "CREATE_PRO_FILE"
-					STR_VAR
-						"filename"
-						"idsname"
-						"projectile_type"
-					END
-				END
-				"STO" BEGIN
-					LAF "CREATE_STO_FILE"
-					STR_VAR
-						"filename"
-					END
-				END
-				"EFF" BEGIN
-					LAF "CREATE_EFF_FILE"
-					STR_VAR
-						"filename"
-					END
-				END
-				"VVC" BEGIN
-					LAF "CREATE_VVC_FILE"
 					STR_VAR
 						"filename"
 					END
@@ -210,15 +172,6 @@ BEGIN
 						REPLACE_TEXTUALLY CASE_INSENSITIVE EVALUATE_REGEXP "[0-9]+$" ""	// Handle duplicates
 					END
 				END
-				LPF "%function%"
-				STR_VAR
-					"arguments"
-				END
-			END
-
-			"update\(_unidentified\)?_desc"
-			"\(say\|set\)\(_unidentified\)?_desc"
-			"\(say\|set\)_name[1-2]" BEGIN
 				LPF "%function%"
 				STR_VAR
 					"arguments"
